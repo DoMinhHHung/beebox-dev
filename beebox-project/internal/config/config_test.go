@@ -67,3 +67,30 @@ func TestLoad_InvalidShutdownTimeout(t *testing.T) {
 		t.Fatal("expected error for zero shutdown timeout")
 	}
 }
+
+func TestConfig_Validate_EmptyDatabaseURLIsAllowed(t *testing.T) {
+	cfg := Config{HTTPPort: "8080", ShutdownTimeout: 10 * time.Second, LogLevel: "info", DatabaseURL: ""}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected empty DatabaseURL to be valid, got error: %v", err)
+	}
+}
+
+func TestConfig_Validate_InvalidDatabaseURL(t *testing.T) {
+	cfg := Config{HTTPPort: "8080", ShutdownTimeout: 10 * time.Second, LogLevel: "info", DatabaseURL: "not-a-valid-url"}
+	err := cfg.Validate()
+	if apperror.CodeOf(err) != apperror.CodeInvalidInput {
+		t.Fatalf("expected CodeInvalidInput, got %v", apperror.CodeOf(err))
+	}
+}
+
+func TestConfig_Validate_ValidDatabaseURL(t *testing.T) {
+	cfg := Config{
+		HTTPPort:        "8080",
+		ShutdownTimeout: 10 * time.Second,
+		LogLevel:        "info",
+		DatabaseURL:     "postgres://user:pass@localhost:5432/dbname",
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
