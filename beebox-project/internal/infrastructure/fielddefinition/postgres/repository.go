@@ -31,7 +31,7 @@ func (r *Repository) Save(ctx context.Context, s fielddefinition.Schema) error {
 	_, err = r.pool.Exec(ctx, `
 		INSERT INTO field_definition_schemas (project_id, version, fields)
 		VALUES ($1, $2, $3)
-	`, s.ProjectID, s.Version, fieldsJSON)
+	`, s.ProjectID, s.Version, string(fieldsJSON))
 	if err != nil {
 		if infrapostgres.IsUniqueViolation(err) {
 			return apperror.New(apperror.CodeConflict, "schema version already exists")
