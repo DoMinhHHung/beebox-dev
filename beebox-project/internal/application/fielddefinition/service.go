@@ -5,17 +5,27 @@ import (
 
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/apperror"
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/domain/fielddefinition"
+	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/domain/project"
 )
 
+type ProjectReader interface {
+	FindByID(ctx context.Context, id string) (project.Project, error)
+}
+
 type Service struct {
-	repo fielddefinition.Repository
+	repo     fielddefinition.Repository
+	projects ProjectReader
 }
 
-func NewService(repo fielddefinition.Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo fielddefinition.Repository, projects ProjectReader) *Service {
+	return &Service{repo: repo, projects: projects}
 }
 
-func (s *Service) Define(ctx context.Context, projectID string, fields []fielddefinition.FieldDefinition) (fielddefinition.Schema, error) {
+func (s *Service) Define(ctx context.Context, actorOwnerID, projectID string, fields []fielddefinition.FieldDefinition) (fielddefinition.Schema, error) {
+	if err := s.checkOwnership(ctx, actorOwnerID, projectID); err != nil {
+		return fielddefinition.Schema{}, err
+	}
+
 	existing, err := s.repo.FindLatest(ctx, projectID)
 	if err != nil {
 		if apperror.CodeOf(err) != apperror.CodeNotFound {
@@ -48,10 +58,27 @@ func (s *Service) createNext(ctx context.Context, current fielddefinition.Schema
 	return next, nil
 }
 
-func (s *Service) GetLatest(ctx context.Context, projectID string) (fielddefinition.Schema, error) {
+func (s *Service) GetLatest(ctx context.Context, actorOwnerID, projectID string) (fielddefinition.Schema, error) {
+	if err := s.checkOwnership(ctx, actorOwnerID, projectID); err != nil {
+		return fielddefinition.Schema{}, err
+	}
 	return s.repo.FindLatest(ctx, projectID)
 }
 
-func (s *Service) GetVersion(ctx context.Context, projectID string, version int) (fielddefinition.Schema, error) {
+func (s *Service) GetVersion(ctx context.Context, actorOwnerID, projectID string, version int) (fielddefinition.Schema, error) {
+	if err := s.checkOwnership(ctx, actorOwnerID, projectID); err != nil {
+		return fielddefinition.Schema{}, err
+	}
 	return s.repo.FindVersion(ctx, projectID, version)
+}
+
+func (s *Service) checkOwnership(ctx context.Context, actorOwnerID, projectID string) error {
+	p, err := s.projects.FindByID(ctx, projectID)
+	if err != nil {
+		return err
+	}
+	if p.OwnerID != actorOwnerID {
+		return apperror.New(apperror.CodeTenantAccessDenied, "project does not belong to the authenticated owner")
+	}
+	return nil
 }
