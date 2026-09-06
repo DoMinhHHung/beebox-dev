@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"github.com/joho/godotenv"
 
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/application/auth"
 	credentialapp "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/application/credential"
@@ -23,6 +24,8 @@ import (
 )
 
 func main() {
+	_ = godotenv.Load()
+	
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("configuration error: %v", err)
