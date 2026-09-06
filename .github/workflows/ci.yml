@@ -11,7 +11,7 @@ jobs:
     outputs:
       modules: ${{ steps.find.outputs.modules }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: find
         run: |
           MODULES=$(find . -maxdepth 2 -name go.mod -exec dirname {} \; | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]')
@@ -25,10 +25,11 @@ jobs:
       matrix:
         module: ${{ fromJson(needs.discover.outputs.modules) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
       - name: gofmt check
         working-directory: ${{ matrix.module }}
         run: |
