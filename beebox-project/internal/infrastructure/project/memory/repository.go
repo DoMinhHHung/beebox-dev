@@ -15,6 +15,7 @@ type ProjectRepository struct {
 
 var _ project.Repository = (*ProjectRepository)(nil)
 
+// NewProjectRepository tạo một repository project trong bộ nhớ rỗng.
 func NewProjectRepository() *ProjectRepository {
 	return &ProjectRepository{store: make(map[string]project.Project)}
 }

@@ -15,6 +15,7 @@ type Dependencies struct {
 	FieldDefinitionService *fielddefinitionapp.Service
 }
 
+// New creates an HTTP engine with health, authentication, and protected dashboard routes.
 func New(deps Dependencies) *gin.Engine {
 	engine := gin.Default()
 	engine.Use(ErrorHandler())

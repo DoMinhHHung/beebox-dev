@@ -22,6 +22,8 @@ type Project struct {
 	CreatedAt time.Time
 }
 
+// NewProject tạo một project và xác thực các thuộc tính đầu vào.
+// Trả về project hợp lệ hoặc lỗi nếu owner ID, tên hoặc tier không hợp lệ.
 func NewProject(id, ownerID, name string, tier Tier, createdAt time.Time) (Project, error) {
 	p := Project{
 		ID:        id,

@@ -26,10 +26,12 @@ type Error struct {
 	Err     error
 }
 
+// New tạo lỗi ứng dụng với mã lỗi và thông báo được cung cấp.
 func New(code Code, message string) *Error {
 	return &Error{Code: code, Message: message}
 }
 
+// Wrap tạo lỗi ứng dụng với mã, thông báo và lỗi nguyên nhân được cung cấp.
 func Wrap(code Code, message string, err error) *Error {
 	return &Error{Code: code, Message: message, Err: err}
 }
@@ -45,6 +47,7 @@ func (e *Error) Unwrap() error {
 	return e.Err
 }
 
+// CodeOf extracts the application error code from an error chain, returning CodeInternal when no application error is found.
 func CodeOf(err error) Code {
 	var appErr *Error
 	if errors.As(err, &appErr) {

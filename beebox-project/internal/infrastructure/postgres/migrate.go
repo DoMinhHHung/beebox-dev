@@ -15,6 +15,7 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
+// It returns an error if the database connection, migration components, or migration execution fails.
 func RunMigrations(databaseURL string) error {
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {

@@ -15,6 +15,7 @@ type SessionRepository struct {
 
 var _ ownersession.Repository = (*SessionRepository)(nil)
 
+// NewSessionRepository creates an empty in-memory session repository.
 func NewSessionRepository() *SessionRepository {
 	return &SessionRepository{byTokenHash: make(map[string]ownersession.Session)}
 }

@@ -17,6 +17,7 @@ type Repository struct {
 
 var _ owner.Repository = (*Repository)(nil)
 
+// New tạo một Repository sử dụng pool kết nối cơ sở dữ liệu PostgreSQL được cung cấp.
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
@@ -55,6 +56,7 @@ func (r *Repository) FindByEmail(ctx context.Context, email string) (owner.Owner
 	return scanOwner(row)
 }
 
+// scanOwner chuyển dữ liệu của một hàng truy vấn thành owner và ánh xạ lỗi truy vấn sang lỗi ứng dụng.
 func scanOwner(row pgx.Row) (owner.Owner, error) {
 	var o owner.Owner
 	if err := row.Scan(&o.ID, &o.Email, &o.PasswordHash, &o.CreatedAt); err != nil {

@@ -17,6 +17,7 @@ type Service struct {
 	projects ProjectReader
 }
 
+// NewService tạo một dịch vụ quản lý credential với repository credential và bộ đọc project được cung cấp.
 func NewService(repo credential.Repository, projects ProjectReader) *Service {
 	return &Service{repo: repo, projects: projects}
 }

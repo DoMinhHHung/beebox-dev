@@ -16,6 +16,7 @@ type Repository struct {
 
 var _ credential.Repository = (*Repository)(nil)
 
+// New tạo một Repository sử dụng pool kết nối PostgreSQL được cung cấp.
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
@@ -53,6 +54,8 @@ func (r *Repository) FindByPublicKey(ctx context.Context, publicKey string) (cre
 	return scanCredential(row)
 }
 
+// scanCredential chuyển dữ liệu từ một hàng truy vấn thành credential.Credential.
+// Trả về lỗi không tìm thấy nếu hàng không tồn tại và lỗi nội bộ nếu không thể đọc dữ liệu.
 func scanCredential(row pgx.Row) (credential.Credential, error) {
 	var c credential.Credential
 	var env, status string

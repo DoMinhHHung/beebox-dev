@@ -17,6 +17,7 @@ type Service struct {
 	projects ProjectReader
 }
 
+// NewService tạo một Service với repository định nghĩa trường và trình đọc dự án được cung cấp.
 func NewService(repo fielddefinition.Repository, projects ProjectReader) *Service {
 	return &Service{repo: repo, projects: projects}
 }

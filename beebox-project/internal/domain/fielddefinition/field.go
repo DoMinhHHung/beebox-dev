@@ -14,6 +14,8 @@ type FieldDefinition struct {
 	Required bool
 }
 
+// NewFieldDefinition creates a validated field definition with the specified name, kind, and required status.
+// It returns an empty definition and an error when the provided values are invalid.
 func NewFieldDefinition(name string, kind FieldKind, required bool) (FieldDefinition, error) {
 	f := FieldDefinition{Name: name, Kind: kind, Required: required}
 	if err := f.Validate(); err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Trả về lỗi nếu DATABASE_URL không hợp lệ, không thể khởi tạo pool hoặc không thể kết nối đến PostgreSQL.
 func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(databaseURL)
 	if err != nil {

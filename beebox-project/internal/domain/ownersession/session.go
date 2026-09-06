@@ -17,6 +17,9 @@ type Session struct {
 	RevokedAt *time.Time
 }
 
+// NewSession creates a session for an owner with the specified lifetime and creation time.
+// It returns the session, its raw token, and an error if the owner ID or lifetime is
+// invalid or session credentials cannot be generated.
 func NewSession(ownerID string, ttl time.Duration, createdAt time.Time) (Session, string, error) {
 	if ownerID == "" {
 		return Session{}, "", apperror.New(apperror.CodeInvalidInput, "owner id must not be empty")

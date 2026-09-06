@@ -17,6 +17,7 @@ type Repository struct {
 
 var _ ownersession.Repository = (*Repository)(nil)
 
+// New tạo một repository sử dụng connection pool PostgreSQL được cung cấp.
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }

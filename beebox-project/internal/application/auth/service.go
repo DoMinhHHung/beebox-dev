@@ -17,6 +17,7 @@ type Service struct {
 	sessionTTL  time.Duration
 }
 
+// NewService tạo một dịch vụ xác thực với các repository và thời hạn phiên đã cho.
 func NewService(ownerRepo owner.Repository, sessionRepo ownersession.Repository, sessionTTL time.Duration) *Service {
 	return &Service{ownerRepo: ownerRepo, sessionRepo: sessionRepo, sessionTTL: sessionTTL}
 }

@@ -16,6 +16,7 @@ type OwnerRepository struct {
 
 var _ owner.Repository = (*OwnerRepository)(nil)
 
+// NewOwnerRepository tạo một kho lưu trữ owner trong bộ nhớ với các ánh xạ ID và email trống.
 func NewOwnerRepository() *OwnerRepository {
 	return &OwnerRepository{
 		byID:    make(map[string]owner.Owner),

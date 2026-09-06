@@ -11,6 +11,7 @@ import (
 const ownerIDContextKey = "owner_id"
 const bearerPrefix = "Bearer "
 
+// RequireOwnerSession creates middleware that verifies the bearer token in the Authorization header and stores the authenticated owner ID in the request context.
 func RequireOwnerSession(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := parseBearerToken(c.GetHeader("Authorization"))
@@ -32,6 +33,9 @@ func RequireOwnerSession(svc *auth.Service) gin.HandlerFunc {
 	}
 }
 
+// OwnerIDFromContext retrieves the owner ID stored in the Gin context.
+// It returns the owner ID and true when the context contains a string value
+// for the owner ID; otherwise, it returns an empty string and false.
 func OwnerIDFromContext(c *gin.Context) (string, bool) {
 	value, exists := c.Get(ownerIDContextKey)
 	if !exists {
@@ -41,6 +45,8 @@ func OwnerIDFromContext(c *gin.Context) (string, bool) {
 	return ownerID, ok
 }
 
+// parseBearerToken trích xuất Bearer token từ giá trị header Authorization.
+// Hàm trả về phần sau tiền tố "Bearer " hoặc lỗi xác thực nếu header không bắt đầu bằng tiền tố này.
 func parseBearerToken(header string) (string, error) {
 	if !strings.HasPrefix(header, bearerPrefix) {
 		return "", apperror.New(apperror.CodeUnauthenticated, "missing or malformed Authorization header")

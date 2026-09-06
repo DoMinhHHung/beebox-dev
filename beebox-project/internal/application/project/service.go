@@ -13,6 +13,7 @@ type Service struct {
 	repo project.Repository
 }
 
+// NewService tạo một Service sử dụng repository được cung cấp.
 func NewService(repo project.Repository) *Service {
 	return &Service{repo: repo}
 }

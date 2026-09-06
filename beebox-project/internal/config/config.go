@@ -18,6 +18,8 @@ type Config struct {
 	OwnerSessionTTL time.Duration
 }
 
+// Load reads application settings from environment variables, applies defaults, and validates the resulting configuration.
+// It returns an invalid-input error when duration values cannot be parsed as integers or when the configuration is invalid.
 func Load() (Config, error) {
 	cfg := Config{
 		HTTPPort:    getEnv("HTTP_PORT", "8080"),
@@ -73,6 +75,7 @@ func (c Config) Validate() error {
 	return nil
 }
 
+// getEnv returns the value of the specified environment variable, or fallback when the variable is unset.
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value

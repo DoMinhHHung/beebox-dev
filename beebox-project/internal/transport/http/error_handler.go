@@ -30,6 +30,8 @@ type errorDetail struct {
 	Message string        `json:"message"`
 }
 
+// ErrorHandler tạo middleware Gin xử lý lỗi đã được ghi nhận và gửi phản hồi JSON tương ứng.
+// Middleware sử dụng mã lỗi nội bộ cùng thông báo chung cho lỗi không xác định hoặc mã lỗi không được ánh xạ.
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()

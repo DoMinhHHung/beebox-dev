@@ -16,6 +16,7 @@ type Repository struct {
 
 var _ credential.Repository = (*Repository)(nil)
 
+// New tạo một repository credential trong bộ nhớ rỗng.
 func New() *Repository {
 	return &Repository{
 		byID:        make(map[string]credential.Credential),

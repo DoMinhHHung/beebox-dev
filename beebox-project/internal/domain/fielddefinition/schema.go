@@ -10,6 +10,8 @@ type Schema struct {
 	Fields    []FieldDefinition
 }
 
+// NewSchema tạo schema mới cho dự án ở phiên bản ban đầu.
+// Trả về lỗi nếu mã dự án rỗng hoặc danh sách field không hợp lệ.
 func NewSchema(projectID string, fields []FieldDefinition) (Schema, error) {
 	if projectID == "" {
 		return Schema{}, apperror.New(apperror.CodeInvalidInput, "projectID must not be empty")
@@ -29,6 +31,8 @@ func (s Schema) NextVersion(fields []FieldDefinition) (Schema, error) {
 	return Schema{ProjectID: s.ProjectID, Version: s.Version + 1, Fields: validated}, nil
 }
 
+// validateFields xác thực danh sách field, yêu cầu có ít nhất một field và không trùng tên.
+// Hàm trả về bản sao của danh sách đã xác thực hoặc lỗi nếu dữ liệu không hợp lệ.
 func validateFields(fields []FieldDefinition) ([]FieldDefinition, error) {
 	if len(fields) == 0 {
 		return nil, apperror.New(apperror.CodeInvalidInput, "schema must contain at least one field")

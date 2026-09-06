@@ -22,6 +22,9 @@ type Owner struct {
 	CreatedAt    time.Time
 }
 
+// NewOwner tạo một Owner sau khi xác thực địa chỉ email và mật khẩu, đồng thời băm mật khẩu.
+// Mật khẩu phải dài từ 8 đến 72 byte. Trả về lỗi nếu dữ liệu không hợp lệ hoặc không thể
+// băm mật khẩu.
 func NewOwner(id, email, plaintextPassword string, createdAt time.Time) (Owner, error) {
 	if !emailPattern.MatchString(email) {
 		return Owner{}, apperror.New(apperror.CodeInvalidInput, "email must be a valid email address")

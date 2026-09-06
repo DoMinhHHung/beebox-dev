@@ -21,6 +21,7 @@ type Repository struct {
 
 var _ fielddefinition.Repository = (*Repository)(nil)
 
+// New creates an empty in-memory schema repository.
 func New() *Repository {
 	return &Repository{
 		schemas: make(map[key]fielddefinition.Schema),

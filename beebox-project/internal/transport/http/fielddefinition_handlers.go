@@ -32,6 +32,7 @@ type schemaResponse struct {
 	Fields    []fieldResponse `json:"fields"`
 }
 
+// toSchemaResponse chuyển schema miền thành biểu diễn dùng trong phản hồi HTTP.
 func toSchemaResponse(s fielddefinition.Schema) schemaResponse {
 	fields := make([]fieldResponse, len(s.Fields))
 	for i, f := range s.Fields {
@@ -40,12 +41,15 @@ func toSchemaResponse(s fielddefinition.Schema) schemaResponse {
 	return schemaResponse{ProjectID: s.ProjectID, Version: s.Version, Fields: fields}
 }
 
+// RegisterFieldDefinitionRoutes registers routes for defining project fields and retrieving the latest or a specific schema version.
 func RegisterFieldDefinitionRoutes(rg *gin.RouterGroup, svc *fielddefinitionapp.Service) {
 	rg.PUT("/projects/:projectID/fields", defineFieldsHandler(svc))
 	rg.GET("/projects/:projectID/fields", getLatestFieldsHandler(svc))
 	rg.GET("/projects/:projectID/fields/:version", getVersionFieldsHandler(svc))
 }
 
+// defineFieldsHandler tạo HTTP handler để xác thực và lưu các định nghĩa field của một project,
+// sau đó trả về schema đã cập nhật dưới dạng JSON.
 func defineFieldsHandler(svc *fielddefinitionapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req defineFieldsRequest
@@ -82,6 +86,7 @@ func defineFieldsHandler(svc *fielddefinitionapp.Service) gin.HandlerFunc {
 	}
 }
 
+// getLatestFieldsHandler tạo handler HTTP trả về schema field mới nhất của một project.
 func getLatestFieldsHandler(svc *fielddefinitionapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ownerID, ok := OwnerIDFromContext(c)
@@ -102,6 +107,7 @@ func getLatestFieldsHandler(svc *fielddefinitionapp.Service) gin.HandlerFunc {
 	}
 }
 
+// getVersionFieldsHandler handles requests for a specific version of a project's field schema.
 func getVersionFieldsHandler(svc *fielddefinitionapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ownerID, ok := OwnerIDFromContext(c)

@@ -27,12 +27,15 @@ type signInResponse struct {
 	Token string `json:"token"`
 }
 
+// RegisterAuthRoutes đăng ký các endpoint HTTP cho đăng ký, đăng nhập và đăng xuất người dùng.
 func RegisterAuthRoutes(rg *gin.RouterGroup, svc *auth.Service) {
 	rg.POST("/sign-up", signUpHandler(svc))
 	rg.POST("/sign-in", signInHandler(svc))
 	rg.POST("/sign-out", signOutHandler(svc))
 }
 
+// signUpHandler tạo HTTP handler xử lý yêu cầu đăng ký tài khoản và trả về thông tin người dùng đã tạo. 
+// Handler trả về trạng thái 201 cùng ID và email của người dùng khi đăng ký thành công.
 func signUpHandler(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req signUpRequest
@@ -51,6 +54,7 @@ func signUpHandler(svc *auth.Service) gin.HandlerFunc {
 	}
 }
 
+// signInHandler tạo HTTP handler xử lý yêu cầu đăng nhập và trả về token xác thực.
 func signInHandler(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req signInRequest
@@ -69,6 +73,9 @@ func signInHandler(svc *auth.Service) gin.HandlerFunc {
 	}
 }
 
+// signOutHandler tạo HTTP handler để đăng xuất người dùng bằng bearer token trong header Authorization.
+// Handler trả về 204 nếu thiếu hoặc không hợp lệ, chuyển lỗi đăng xuất hợp lệ vào context,
+// và trả về 204 khi đăng xuất thành công.
 func signOutHandler(svc *auth.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")

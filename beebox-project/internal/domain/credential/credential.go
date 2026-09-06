@@ -64,6 +64,9 @@ func (c Credential) Metadata() Metadata {
 	}
 }
 
+// NewCredential tạo credential đang hoạt động cho dự án và môi trường được chỉ định.
+// Trả về credential, secret dạng văn bản để sử dụng ban đầu và lỗi nếu dữ liệu đầu vào
+// không hợp lệ hoặc không thể tạo credential.
 func NewCredential(projectID string, env Environment) (Credential, string, error) {
 	if projectID == "" {
 		return Credential{}, "", apperror.New(apperror.CodeInvalidInput, "projectID must not be empty")

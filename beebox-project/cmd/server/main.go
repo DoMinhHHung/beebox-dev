@@ -25,6 +25,7 @@ import (
 	httpapi "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/transport/http"
 )
 
+// main khởi động máy chủ HTTP, kết nối cơ sở dữ liệu và thực hiện tắt máy một cách nhẹ nhàng khi nhận tín hiệu dừng.
 func main() {
 	_ = godotenv.Load()
 

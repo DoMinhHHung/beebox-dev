@@ -29,6 +29,7 @@ type credentialWithSecretResponse struct {
 	SecretKey string `json:"secret_key"`
 }
 
+// toMetadataResponse converts credential metadata to its HTTP response representation.
 func toMetadataResponse(md credential.Metadata) credentialMetadataResponse {
 	return credentialMetadataResponse{
 		ID:          md.ID,
@@ -41,6 +42,7 @@ func toMetadataResponse(md credential.Metadata) credentialMetadataResponse {
 	}
 }
 
+// toSecretResponse combines credential metadata and a secret key into an API response.
 func toSecretResponse(md credential.Metadata, secret string) credentialWithSecretResponse {
 	return credentialWithSecretResponse{
 		credentialMetadataResponse: toMetadataResponse(md),
@@ -48,6 +50,7 @@ func toSecretResponse(md credential.Metadata, secret string) credentialWithSecre
 	}
 }
 
+// RegisterCredentialRoutes đăng ký các route HTTP để tạo, xoay vòng, thu hồi và truy vấn thông tin xác thực.
 func RegisterCredentialRoutes(rg *gin.RouterGroup, svc *credentialapp.Service) {
 	rg.POST("/projects/:projectID/credentials", createCredentialHandler(svc))
 	rg.POST("/credentials/:credentialID/rotate", rotateCredentialHandler(svc))
@@ -55,6 +58,7 @@ func RegisterCredentialRoutes(rg *gin.RouterGroup, svc *credentialapp.Service) {
 	rg.GET("/credentials/:credentialID", getCredentialHandler(svc))
 }
 
+// createCredentialHandler tạo HTTP handler để tạo thông tin xác thực cho một dự án.
 func createCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req createCredentialRequest
@@ -81,6 +85,8 @@ func createCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	}
 }
 
+// rotateCredentialHandler tạo trình xử lý HTTP để xoay vòng thông tin xác thực và trả về siêu dữ liệu cùng khóa bí mật mới.
+// Giá trị trả về là trình xử lý thực hiện thao tác xoay vòng cho thông tin xác thực được chỉ định.
 func rotateCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ownerID, ok := OwnerIDFromContext(c)
@@ -101,6 +107,7 @@ func rotateCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	}
 }
 
+// revokeCredentialHandler tạo HTTP handler thu hồi thông tin xác thực và trả về siêu dữ liệu của thông tin xác thực đó.
 func revokeCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ownerID, ok := OwnerIDFromContext(c)
@@ -121,6 +128,9 @@ func revokeCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	}
 }
 
+// getCredentialHandler trả về handler lấy siêu dữ liệu của thông tin xác thực theo mã thông tin xác thực.
+// @param svc Dịch vụ quản lý thông tin xác thực.
+// @returns Handler HTTP trả về siêu dữ liệu thông tin xác thực hoặc chuyển tiếp lỗi.
 func getCredentialHandler(svc *credentialapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ownerID, ok := OwnerIDFromContext(c)

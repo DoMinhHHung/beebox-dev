@@ -21,10 +21,14 @@ type createProjectResponse struct {
 	OwnerID string `json:"owner_id"`
 }
 
+// RegisterProjectRoutes đăng ký route POST /projects để tạo project mới.
 func RegisterProjectRoutes(rg *gin.RouterGroup, svc *projectapp.Service) {
 	rg.POST("/projects", createProjectHandler(svc))
 }
 
+// createProjectHandler tạo một HTTP handler để tạo project mới từ nội dung JSON của request.
+// Handler mặc định tier là free khi không được cung cấp và trả về thông tin project với mã
+// HTTP 201 Created khi tạo thành công.
 func createProjectHandler(svc *projectapp.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req createProjectRequest

@@ -18,6 +18,7 @@ type Repository struct {
 
 var _ fielddefinition.Repository = (*Repository)(nil)
 
+// New tạo một Repository sử dụng connection pool PostgreSQL được cung cấp.
 func New(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
@@ -61,6 +62,9 @@ func (r *Repository) FindVersion(ctx context.Context, projectID string, version 
 	return scanSchema(row)
 }
 
+// scanSchema đọc một hàng dữ liệu thành schema và giải mã các trường JSON.
+// Trả về lỗi không tìm thấy nếu hàng không tồn tại hoặc lỗi nội bộ nếu dữ liệu
+// không thể đọc hay giải mã.
 func scanSchema(row pgx.Row) (fielddefinition.Schema, error) {
 	var s fielddefinition.Schema
 	var fieldsJSON []byte
