@@ -21,6 +21,9 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Fatalf("expected default ShutdownTimeout 10s, got %v", cfg.ShutdownTimeout)
 	}
+	if cfg.OwnerSessionTTL != 24*time.Hour {
+		t.Fatalf("expected default OwnerSessionTTL 24h, got %v", cfg.OwnerSessionTTL)
+	}
 }
 
 func TestLoad_ValidOverride(t *testing.T) {
@@ -68,29 +71,36 @@ func TestLoad_InvalidShutdownTimeout(t *testing.T) {
 	}
 }
 
-func TestConfig_Validate_EmptyDatabaseURLIsAllowed(t *testing.T) {
-	cfg := Config{HTTPPort: "8080", ShutdownTimeout: 10 * time.Second, LogLevel: "info", DatabaseURL: ""}
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("expected empty DatabaseURL to be valid, got error: %v", err)
+func TestLoad_DefaultOwnerSessionTTL(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if cfg.OwnerSessionTTL != 24*time.Hour {
+		t.Fatalf("expected 24h, got %v", cfg.OwnerSessionTTL)
 	}
 }
 
-func TestConfig_Validate_InvalidDatabaseURL(t *testing.T) {
-	cfg := Config{HTTPPort: "8080", ShutdownTimeout: 10 * time.Second, LogLevel: "info", DatabaseURL: "not-a-valid-url"}
-	err := cfg.Validate()
+func TestLoad_InvalidOwnerSessionTTL(t *testing.T) {
+	t.Setenv("OWNER_SESSION_TTL_HOURS", "0")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for zero session ttl")
+	}
 	if apperror.CodeOf(err) != apperror.CodeInvalidInput {
-		t.Fatalf("expected CodeInvalidInput, got %v", apperror.CodeOf(err))
+		t.Fatalf("expected CodeInvalidInput, got %s", apperror.CodeOf(err))
 	}
 }
 
-func TestConfig_Validate_ValidDatabaseURL(t *testing.T) {
-	cfg := Config{
-		HTTPPort:        "8080",
-		ShutdownTimeout: 10 * time.Second,
-		LogLevel:        "info",
-		DatabaseURL:     "postgres://user:pass@localhost:5432/dbname",
+func TestLoad_InvalidDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "not-a-valid-url")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for invalid DATABASE_URL")
 	}
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if apperror.CodeOf(err) != apperror.CodeInvalidInput {
+		t.Fatalf("expected CodeInvalidInput, got %s", apperror.CodeOf(err))
 	}
 }

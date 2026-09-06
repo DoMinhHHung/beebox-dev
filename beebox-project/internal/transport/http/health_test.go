@@ -7,7 +7,7 @@ import (
 )
 
 func TestHealthz(t *testing.T) {
-	engine := New()
+	engine := New(Dependencies{})
 
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()

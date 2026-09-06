@@ -11,10 +11,11 @@ import (
 )
 
 type Config struct {
-	HTTPPort        string
-	ShutdownTimeout time.Duration
-	LogLevel        string
-	DatabaseURL     string
+	HTTPPort         string
+	ShutdownTimeout  time.Duration
+	LogLevel         string
+	DatabaseURL      string
+	OwnerSessionTTL  time.Duration
 }
 
 func Load() (Config, error) {
@@ -29,6 +30,12 @@ func Load() (Config, error) {
 		return Config{}, apperror.Wrap(apperror.CodeInvalidInput, "SHUTDOWN_TIMEOUT_SECONDS must be an integer", err)
 	}
 	cfg.ShutdownTimeout = time.Duration(timeoutSeconds) * time.Second
+
+	ttlHours, err := strconv.Atoi(getEnv("OWNER_SESSION_TTL_HOURS", "24"))
+	if err != nil {
+		return Config{}, apperror.Wrap(apperror.CodeInvalidInput, "OWNER_SESSION_TTL_HOURS must be an integer", err)
+	}
+	cfg.OwnerSessionTTL = time.Duration(ttlHours) * time.Hour
 
 	if err := cfg.Validate(); err != nil {
 		return Config{}, err
@@ -45,6 +52,10 @@ func (c Config) Validate() error {
 
 	if c.ShutdownTimeout <= 0 {
 		return apperror.New(apperror.CodeInvalidInput, "SHUTDOWN_TIMEOUT_SECONDS must be greater than zero")
+	}
+
+	if c.OwnerSessionTTL <= 0 {
+		return apperror.New(apperror.CodeInvalidInput, "OWNER_SESSION_TTL_HOURS must be greater than zero")
 	}
 
 	switch c.LogLevel {
