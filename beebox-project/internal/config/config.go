@@ -11,11 +11,11 @@ import (
 )
 
 type Config struct {
-	HTTPPort         string
-	ShutdownTimeout  time.Duration
-	LogLevel         string
-	DatabaseURL      string
-	OwnerSessionTTL  time.Duration
+	HTTPPort        string
+	ShutdownTimeout time.Duration
+	LogLevel        string
+	DatabaseURL     string
+	OwnerSessionTTL time.Duration
 }
 
 func Load() (Config, error) {

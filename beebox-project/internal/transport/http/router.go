@@ -9,10 +9,10 @@ import (
 )
 
 type Dependencies struct {
-	AuthService             *auth.Service
-	ProjectService          *projectapp.Service
-	CredentialService       *credentialapp.Service
-	FieldDefinitionService  *fielddefinitionapp.Service
+	AuthService            *auth.Service
+	ProjectService         *projectapp.Service
+	CredentialService      *credentialapp.Service
+	FieldDefinitionService *fielddefinitionapp.Service
 }
 
 func New(deps Dependencies) *gin.Engine {

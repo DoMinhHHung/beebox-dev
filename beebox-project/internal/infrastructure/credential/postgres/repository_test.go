@@ -9,10 +9,10 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/apperror"
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/domain/credential"
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/domain/project"
+	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/idgen"
 	credentialpostgres "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/infrastructure/credential/postgres"
 	infrapostgres "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/infrastructure/postgres"
 	projectpostgres "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/infrastructure/project/postgres"
-	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/idgen"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
