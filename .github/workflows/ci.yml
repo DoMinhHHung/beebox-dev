@@ -2,82 +2,49 @@ name: CI
 
 on:
   push:
-    branches: [main, master, "feat/**", "fix/**"]
+    branches: [main]
   pull_request:
-    branches: [main, master]
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.find.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          MODULES=$(find . -maxdepth 2 -name go.mod -exec dirname {} \; | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]')
+          echo "modules=$MODULES" >> "$GITHUB_OUTPUT"
+
   test:
-    name: Test & Build
+    needs: discover
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: beebox-project
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: beebox
-          POSTGRES_PASSWORD: beebox
-          POSTGRES_DB: beebox_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U beebox -d beebox_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      DATABASE_URL: postgres://beebox:beebox@localhost:5432/beebox_test?sslmode=disable
-
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version-file: beebox-project/go.mod
-          cache-dependency-path: beebox-project/go.sum
-
-      - name: Download modules
-        run: go mod download
-
-      - name: Vet
+          go-version-file: ${{ matrix.module }}/go.mod
+      - name: gofmt check
+        working-directory: ${{ matrix.module }}
+        run: |
+          UNFORMATTED=$(gofmt -l .)
+          if [ -n "$UNFORMATTED" ]; then
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+      - name: go mod verify
+        working-directory: ${{ matrix.module }}
+        run: go mod verify
+      - name: go vet
+        working-directory: ${{ matrix.module }}
         run: go vet ./...
-
-      - name: Test
-        run: go test ./... -count=1 -race -timeout 5m
-
-      - name: Build server
-        run: go build -o /tmp/beebox-server ./cmd/server
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: beebox-project
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: beebox-project/go.mod
-          cache-dependency-path: beebox-project/go.sum
-
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          working-directory: beebox-project
-          args: --timeout=5m
+      - name: go test
+        working-directory: ${{ matrix.module }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_CI }}
+        run: go test -race -count=1 ./...
