@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
-	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/DoMinhHHung/beebox-dev/beebox-project/internal/application/auth"
 	credentialapp "github.com/DoMinhHHung/beebox-dev/beebox-project/internal/application/credential"
@@ -63,8 +65,12 @@ func main() {
 	engine := httpapi.New(deps)
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.HTTPPort,
-		Handler: engine,
+		Addr:              ":" + cfg.HTTPPort,
+		Handler:           engine,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

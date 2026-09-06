@@ -1,6 +1,7 @@
 package owner
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,12 @@ func TestNewOwner_InvalidEmail(t *testing.T) {
 
 func TestNewOwner_PasswordTooShort(t *testing.T) {
 	_, err := NewOwner("owner-1", "minh@example.com", "short", time.Now())
+	assertCode(t, err, apperror.CodeInvalidInput)
+}
+
+func TestNewOwner_PasswordExceedsBcryptLimit(t *testing.T) {
+	long := strings.Repeat("a", 73)
+	_, err := NewOwner("owner-1", "minh@example.com", long, time.Now().UTC())
 	assertCode(t, err, apperror.CodeInvalidInput)
 }
 

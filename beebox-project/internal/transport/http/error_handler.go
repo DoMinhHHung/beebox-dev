@@ -46,7 +46,10 @@ func ErrorHandler() gin.HandlerFunc {
 		var appErr *apperror.Error
 		if errors.As(err, &appErr) {
 			code = appErr.Code
-			message = appErr.Message
+			// Only expose message for client-safe codes; never leak internal details.
+			if code != apperror.CodeInternal {
+				message = appErr.Message
+			}
 		}
 
 		status, ok := statusByCode[code]
