@@ -10,7 +10,10 @@ import (
 
 var emailPattern = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
 
-const minPasswordLength = 8
+const (
+	minPasswordLength = 8
+	maxPasswordBytes  = 72 // bcrypt input limit
+)
 
 type Owner struct {
 	ID           string
@@ -25,6 +28,9 @@ func NewOwner(id, email, plaintextPassword string, createdAt time.Time) (Owner, 
 	}
 	if len(plaintextPassword) < minPasswordLength {
 		return Owner{}, apperror.New(apperror.CodeInvalidInput, "password must be at least 8 characters")
+	}
+	if len(plaintextPassword) > maxPasswordBytes {
+		return Owner{}, apperror.New(apperror.CodeInvalidInput, "password must be at most 72 bytes")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(plaintextPassword), bcrypt.DefaultCost)
