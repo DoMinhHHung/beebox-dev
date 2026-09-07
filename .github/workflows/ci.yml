@@ -5,6 +5,9 @@ on:
     branches: [main, "feat/**", "fix/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   discover:
     runs-on: ubuntu-latest
@@ -12,6 +15,8 @@ jobs:
       modules: ${{ steps.find.outputs.modules }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - id: find
         run: |
           MODULES=$(find . -maxdepth 2 -name go.mod -exec dirname {} \; | sed 's|^\./||' | jq -R -s -c 'split("\n")[:-1]')
@@ -26,6 +31,8 @@ jobs:
         module: ${{ fromJson(needs.discover.outputs.modules) }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@v7
         with:
           go-version-file: ${{ matrix.module }}/go.mod

@@ -12,7 +12,7 @@ build:
 	go build -o bin/server ./cmd/server
 
 run:
-	go run ./cmd/server
+	DATABASE_URL='$(DATABASE_URL)' go run ./cmd/server
 
 lint:
 	golangci-lint run --timeout=5m

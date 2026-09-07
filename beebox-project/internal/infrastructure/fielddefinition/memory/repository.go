@@ -28,6 +28,15 @@ func New() *Repository {
 	}
 }
 
+func cloneSchema(s fielddefinition.Schema) fielddefinition.Schema {
+	out := s
+	if s.Fields != nil {
+		out.Fields = make([]fielddefinition.FieldDefinition, len(s.Fields))
+		copy(out.Fields, s.Fields)
+	}
+	return out
+}
+
 func (r *Repository) Save(ctx context.Context, s fielddefinition.Schema) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -41,7 +50,7 @@ func (r *Repository) Save(ctx context.Context, s fielddefinition.Schema) error {
 		return apperror.New(apperror.CodeConflict, "schema version must be greater than current latest version")
 	}
 
-	r.schemas[k] = s
+	r.schemas[k] = cloneSchema(s)
 	r.latest[s.ProjectID] = s.Version
 	return nil
 }
@@ -54,7 +63,7 @@ func (r *Repository) FindLatest(ctx context.Context, projectID string) (fielddef
 	if !ok {
 		return fielddefinition.Schema{}, apperror.New(apperror.CodeNotFound, "no schema found for project: "+projectID)
 	}
-	return r.schemas[key{projectID: projectID, version: version}], nil
+	return cloneSchema(r.schemas[key{projectID: projectID, version: version}]), nil
 }
 
 func (r *Repository) FindVersion(ctx context.Context, projectID string, version int) (fielddefinition.Schema, error) {
@@ -65,5 +74,5 @@ func (r *Repository) FindVersion(ctx context.Context, projectID string, version 
 	if !ok {
 		return fielddefinition.Schema{}, apperror.New(apperror.CodeNotFound, "schema version not found")
 	}
-	return s, nil
+	return cloneSchema(s), nil
 }

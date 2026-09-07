@@ -56,6 +56,7 @@ func ErrorHandler() gin.HandlerFunc {
 		if !ok {
 			status = http.StatusInternalServerError
 			code = apperror.CodeInternal
+			message = "internal error"
 		}
 
 		c.JSON(status, errorBody{Error: errorDetail{Code: code, Message: message}})
