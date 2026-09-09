@@ -74,10 +74,10 @@ go test ./apperror -count=1
 ```
 
 ### 4. Lock down dependency direction
-- [ ] Make domain independent of HTTP, PostgreSQL, Redis, and framework packages.
-- [ ] Make application use cases depend on domain contracts rather than concrete adapters.
-- [ ] Keep concrete adapters under `internal/infrastructure/`.
-- [ ] Keep transport conversion under `internal/interfaces/`.
+- [x] Make domain independent of HTTP, PostgreSQL, Redis, and framework packages.
+- [x] Reserve application use cases for domain contracts and keep them independent of concrete adapters.
+- [x] Keep concrete adapters under `internal/infrastructure/`.
+- [x] Keep transport conversion under `internal/interfaces/`.
 
 **Verify**
 ```bash
@@ -230,7 +230,7 @@ go test -race -count=1 ./...
 | 1 | ✅ | go.mod initialized (github.com/DoMinhHHung/beebox-dev/services/beebox-project, go 1.26.5); `go test ./...` → no test files, no build errors |
 | 2 | ✅ | build/vet/test green; gofmt clean; no interfaces/abstractions added |
 | 3 | ✅ | `apperror` implementation and tests added; `go test ./apperror -count=1` passes; service error contract documented |
-| 4 | ⬜ | |
+| 4 | ✅ | Dependency boundaries verified; domain/application contain no infrastructure or transport imports; `go vet ./...` and `go list -deps ./...` pass |
 | 5 | ⬜ | |
 | 6 | ⬜ | |
 | 7 | ⬜ | |
