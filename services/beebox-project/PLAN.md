@@ -86,12 +86,11 @@ go list -deps ./... >/dev/null
 ```
 
 ### 5. Define the Project domain
-- [ ] Introduce the `project` domain package.
-- [ ] Define Project identity and ownership (`organization_id`).
-- [ ] Define project lifecycle states and valid transitions.
-- [ ] Define domain invariants without introducing auth, payment, or runtime logic.
-- [ ] Add domain unit tests for valid and invalid transitions.
-
+- [x] Introduce the `project` domain package.
+- [x] Define Project identity and ownership (`organization_id` ).
+- [x] Define project lifecycle states and valid transitions.
+- [x] Define domain invariants without introducing auth, payment, or runtime logic.
+- [x] Add domain unit tests for valid and invalid transitions.
 **Verify**
 ```bash
 go test ./internal/domain/project -count=1
@@ -231,7 +230,7 @@ go test -race -count=1 ./...
 | 2 | ✅ | build/vet/test green; gofmt clean; no interfaces/abstractions added |
 | 3 | ✅ | `apperror` implementation and tests added; `go test ./apperror -count=1` passes; service error contract documented |
 | 4 | ✅ | Dependency boundaries verified; domain/application contain no infrastructure or transport imports; `go vet ./...` and `go list -deps ./...` pass |
-| 5 | ⬜ | |
+| 5 | ✅ | Project identity, organization ownership, lifecycle states, valid/invalid transitions, and domain tests added; domain and full verification pass |
 | 6 | ⬜ | |
 | 7 | ⬜ | |
 | 8 | ⬜ | |
