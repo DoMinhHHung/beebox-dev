@@ -59,13 +59,14 @@ go vet ./...
 ```
 
 ### 3. Add centralized application errors
-- [ ] Add `apperror/apperror.go`.
-- [ ] Add `apperror/apperror_test.go`.
-- [ ] Define stable machine-readable error identity.
-- [ ] Support the initial categories required by the service: validation, unauthenticated, forbidden, not found, conflict, dependency failure, and internal failure.
-- [ ] Preserve an underlying cause without leaking sensitive implementation details.
-- [ ] Keep `apperror` framework/database/Redis agnostic.
-- [ ] Document that every service and module follows the same centralized-error principle, while `beebox-project` owns its concrete service-local error package for now.
+- [x] Add `apperror/apperror.go`.
+- [x] Add `apperror/apperror_test.go`.
+- [x] Define stable machine-readable error identity.
+- [x] Support the initial categories required by the service: validation, unauthenticated, forbidden, not found, conflict, dependency failure, and internal failure.
+- [x] Preserve an underlying cause without leaking sensitive implementation details.
+- [x] Keep `apperror` framework/database/Redis agnostic.
+- [x] Document that every service and module follows the same centralized-error principle, while `beebox-project` owns its concrete service-local error package for now.
+
 
 **Verify**
 ```bash
@@ -228,7 +229,7 @@ go test -race -count=1 ./...
 |---|---|---|
 | 1 | ✅ | go.mod initialized (github.com/DoMinhHHung/beebox-dev/services/beebox-project, go 1.26.5); `go test ./...` → no test files, no build errors |
 | 2 | ✅ | build/vet/test green; gofmt clean; no interfaces/abstractions added |
-| 3 | ⬜ | |
+| 3 | ✅ | `apperror` implementation and tests added; `go test ./apperror -count=1` passes; service error contract documented |
 | 4 | ⬜ | |
 | 5 | ⬜ | |
 | 6 | ⬜ | |
