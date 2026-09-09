@@ -98,13 +98,11 @@ go test ./internal/domain/project -count=1
 
 ### 6. Define project-owned domain boundaries
 Group these short setup tasks together:
-
-- [ ] Define boundaries for `module`, `capability`, `configuration`, `credential`, and `infrastructure` desired state.
-- [ ] Keep each boundary explicit about what it owns.
-- [ ] Model relationships as `Project -> Module -> Capability`.
-- [ ] Treat infrastructure as desired state, not actual runtime state.
-- [ ] Prevent `beebox-project` from owning domain data of other services.
-
+- [x] Define boundaries for `module`, `capability`, `configuration`, `credential`, and `infrastructure` desired state.
+- [x] Keep each boundary explicit about what it owns.
+- [x] Model relationships as `Project -> Module -> Capability`.
+- [x] Treat infrastructure as desired state, not actual runtime state.
+- [x] Prevent `beebox-project` from owning domain data of other services/modules.
 **Verify**
 - Domain package tests pass.
 - No cross-service business tables or domain imports are introduced.
@@ -231,7 +229,7 @@ go test -race -count=1 ./...
 | 3 | ✅ | `apperror` implementation and tests added; `go test ./apperror -count=1` passes; service error contract documented |
 | 4 | ✅ | Dependency boundaries verified; domain/application contain no infrastructure or transport imports; `go vet ./...` and `go list -deps ./...` pass |
 | 5 | ✅ | Project identity, organization ownership, lifecycle states, valid/invalid transitions, and domain tests added; domain and full verification pass |
-| 6 | ⬜ | |
+| 6 | ✅ | Project-owned module, capability, configuration, credential, and infrastructure desired-state boundaries added; Project-to-Module-to-Capability references and domain tests pass |
 | 7 | ⬜ | |
 | 8 | ⬜ | |
 | 9 | ⬜ | |
