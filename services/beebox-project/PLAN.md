@@ -34,9 +34,9 @@
 ## Steps
 
 ### 1. Bootstrap `services/beebox-project`
-- [ ] Create `services/beebox-project/`.
-- [ ] Initialize `go.mod` for `go1.26.5`.
-- [ ] Keep the module independently runnable/testable.
+- [x] Create `services/beebox-project/`.
+- [x] Initialize `go.mod` for `go1.26.5`.
+- [x] Keep the module independently runnable/testable.
 
 **Verify**
 ```bash
@@ -226,7 +226,7 @@ go test -race -count=1 ./...
 
 | Step | Status | Evidence |
 |---|---|---|
-| 1 | ⬜ | |
+| 1 | ✅ | go.mod initialized (github.com/DoMinhHHung/beebox-dev/services/beebox-project, go 1.26.5); `go test ./...` → no test files, no build errors |
 | 2 | ⬜ | |
 | 3 | ⬜ | |
 | 4 | ⬜ | |
