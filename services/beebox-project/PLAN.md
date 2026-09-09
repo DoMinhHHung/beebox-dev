@@ -108,12 +108,11 @@ Group these short setup tasks together:
 - No cross-service business tables or domain imports are introduced.
 
 ### 7. Define module/capability catalog contracts
-- [ ] Define module identity and version.
-- [ ] Define capability identity and version.
-- [ ] Define how project configuration references enabled modules/capabilities.
-- [ ] Reject unknown identifiers/versions deterministically.
-- [ ] Keep catalog metadata separate from module runtime implementation.
-
+- [x] Define module identity and version.
+- [x] Define capability identity and version.
+- [x] Define how project configuration references enabled modules/capabilities.
+- [x] Reject unknown identifiers/versions deterministically.
+- [x] Keep catalog metadata separate from module runtime implementation.
 **Verify**
 - Add contract/unit tests for valid, missing, and unknown module/capability references.
 
@@ -230,7 +229,7 @@ go test -race -count=1 ./...
 | 4 | ✅ | Dependency boundaries verified; domain/application contain no infrastructure or transport imports; `go vet ./...` and `go list -deps ./...` pass |
 | 5 | ✅ | Project identity, organization ownership, lifecycle states, valid/invalid transitions, and domain tests added; domain and full verification pass |
 | 6 | ✅ | Project-owned module, capability, configuration, credential, and infrastructure desired-state boundaries added; Project-to-Module-to-Capability references and domain tests pass |
-| 7 | ⬜ | |
+| 7 | ✅ | Module and capability catalog metadata added; exact identifier/version lookup, configuration references, unknown references, mismatched versions, and duplicate definitions are covered by unit tests |
 | 8 | ⬜ | |
 | 9 | ⬜ | |
 | 10 | ⬜ | |

@@ -5,19 +5,33 @@ import "errors"
 var ErrInvalidConfiguration = errors.New("invalid configuration")
 
 type Configuration struct {
-	ProjectID    string
-	ModuleID     string
-	CapabilityID string
+	ProjectID         string
+	ModuleID          string
+	ModuleVersion     string
+	CapabilityID      string
+	CapabilityVersion string
 }
 
-func New(projectID string, moduleID string, capabilityID string) (Configuration, error) {
-	if projectID == "" || moduleID == "" || capabilityID == "" {
+func New(
+	projectID string,
+	moduleID string,
+	moduleVersion string,
+	capabilityID string,
+	capabilityVersion string,
+) (Configuration, error) {
+	if projectID == "" ||
+		moduleID == "" ||
+		moduleVersion == "" ||
+		capabilityID == "" ||
+		capabilityVersion == "" {
 		return Configuration{}, ErrInvalidConfiguration
 	}
 
 	return Configuration{
-		ProjectID:    projectID,
-		ModuleID:     moduleID,
-		CapabilityID: capabilityID,
+		ProjectID:         projectID,
+		ModuleID:          moduleID,
+		ModuleVersion:     moduleVersion,
+		CapabilityID:      capabilityID,
+		CapabilityVersion: capabilityVersion,
 	}, nil
 }
