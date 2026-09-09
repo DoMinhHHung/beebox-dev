@@ -129,11 +129,11 @@ go test ./... -count=1
 ```
 
 ### 9. Define configuration lifecycle and desired state
-- [ ] Model configuration versions explicitly.
-- [ ] Support a lifecycle such as `DRAFT -> VALIDATED -> PUBLISHED -> APPLIED`.
-- [ ] Ensure invalid configuration cannot become active.
-- [ ] Keep current/desired configuration separate from provisioning/actual state.
-- [ ] Record enough state for later rollback/audit without implementing a full deployment engine yet.
+- [x] Model configuration versions explicitly.
+- [x] Support a lifecycle such as `DRAFT -> VALIDATED -> PUBLISHED -> APPLIED`.
+- [x] Ensure invalid configuration cannot become active.
+- [x] Keep current/desired configuration separate from provisioning/actual state.
+- [x] Record enough state for later rollback/audit without implementing a full deployment engine yet.
 
 **Verify**
 - Unit tests cover valid transitions and blocked transitions.
@@ -230,7 +230,7 @@ go test -race -count=1 ./...
 | 6 | ✅ | Project-owned module, capability, configuration, credential, and infrastructure desired-state boundaries added; Project-to-Module-to-Capability references and domain tests pass |
 | 7 | ✅ | Module and capability catalog metadata added; exact identifier/version lookup, configuration references, unknown references, mismatched versions, and duplicate definitions are covered by unit tests |
 | 8 | ✅ | Controlled data-field references added with exact catalog/version validation; supported, custom, duplicate, incompatible, and version-mismatch cases covered by tests |
-| 9 | ⬜ | |
+| 9 | ✅ | Version of configuration wall, lifecycle DRAFT→VALIDATED→PUBLISHED→APPLIED|
 | 10 | ⬜ | |
 | 11 | ⬜ | |
 | 12 | ⬜ | |
