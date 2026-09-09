@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+      - "fix/**"
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.find.outputs.modules }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - id: find
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODULES="$(
+            find . \
+              -name go.mod \
+              -type f \
+              -not -path './.git/*' \
+              -exec dirname {} \; |
+            sed 's|^\./||' |
+            sort |
+            jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )"
+
+          if [ "$MODULES" = "[]" ]; then
+            echo "No Go modules found"
+            exit 1
+          fi
+
+          echo "modules=$MODULES" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: discover
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.discover.outputs.modules) }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.26.5"
+          cache: true
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+
+      - name: gofmt check
+        working-directory: ${{ matrix.module }}
+        run: |
+          UNFORMATTED="$(gofmt -l .)"
+          if [ -n "$UNFORMATTED" ]; then
+            echo "$UNFORMATTED"
+            exit 1
+          fi
+
+      - name: go mod verify
+        working-directory: ${{ matrix.module }}
+        run: go mod verify
+
+      - name: go vet
+        working-directory: ${{ matrix.module }}
+        run: go vet ./...
+
+      - name: go test
+        working-directory: ${{ matrix.module }}
+        run: go test -race -count=1 ./...
