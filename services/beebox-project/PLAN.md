@@ -117,13 +117,12 @@ Group these short setup tasks together:
 - Add contract/unit tests for valid, missing, and unknown module/capability references.
 
 ### 8. Define controlled data-field configuration
-- [ ] Define project configuration for enabled data fields.
-- [ ] Treat fields as references to a BeeBox-controlled catalog.
-- [ ] Reject arbitrary/custom field identifiers.
-- [ ] Make field configuration version-aware.
-- [ ] Define additive vs incompatible/destructive change rules.
-- [ ] Add tests for supported field, unsupported field, duplicate field, incompatible change, and version mismatch cases.
-
+- [x] Define project configuration for enabled data fields.
+- [x] Treat fields as references to a BeeBox-controlled catalog.
+- [x] Reject arbitrary/custom field identifiers.
+- [x] Make field configuration version-aware.
+- [x] Define additive vs incompatible/destructive change rules.
+- [x] Add tests for supported field, unsupported field, duplicate field, incompatible change, and version mismatch cases.
 **Verify**
 ```bash
 go test ./... -count=1
@@ -230,7 +229,7 @@ go test -race -count=1 ./...
 | 5 | ✅ | Project identity, organization ownership, lifecycle states, valid/invalid transitions, and domain tests added; domain and full verification pass |
 | 6 | ✅ | Project-owned module, capability, configuration, credential, and infrastructure desired-state boundaries added; Project-to-Module-to-Capability references and domain tests pass |
 | 7 | ✅ | Module and capability catalog metadata added; exact identifier/version lookup, configuration references, unknown references, mismatched versions, and duplicate definitions are covered by unit tests |
-| 8 | ⬜ | |
+| 8 | ✅ | Controlled data-field references added with exact catalog/version validation; supported, custom, duplicate, incompatible, and version-mismatch cases covered by tests |
 | 9 | ⬜ | |
 | 10 | ⬜ | |
 | 11 | ⬜ | |

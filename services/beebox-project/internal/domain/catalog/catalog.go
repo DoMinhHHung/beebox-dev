@@ -1,14 +1,29 @@
 package catalog
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/configuration"
+)
 
 var (
 	ErrInvalidModuleDefinition     = errors.New("invalid module definition")
 	ErrInvalidCapabilityDefinition = errors.New("invalid capability definition")
+	ErrInvalidDataFieldDefinition  = errors.New("invalid data field definition")
 	ErrDuplicateModule             = errors.New("duplicate module")
 	ErrDuplicateCapability         = errors.New("duplicate capability")
+	ErrDuplicateDataField          = errors.New("duplicate data field")
 	ErrUnknownModule               = errors.New("unknown module")
 	ErrUnknownCapability           = errors.New("unknown capability")
+	ErrUnknownDataField            = errors.New("unknown data field")
+	ErrIncompatibleDataFieldChange = errors.New("incompatible data field change")
+)
+
+type ChangeKind string
+
+const (
+	ChangeAdditive     ChangeKind = "ADDITIVE"
+	ChangeIncompatible ChangeKind = "INCOMPATIBLE"
 )
 
 type ModuleDefinition struct {
@@ -22,6 +37,15 @@ type CapabilityDefinition struct {
 	Version  string
 }
 
+type DataFieldDefinition struct {
+	ModuleID          string
+	CapabilityID      string
+	CapabilityVersion string
+	ID                string
+	Version           string
+	ChangeKind        ChangeKind
+}
+
 type moduleKey struct {
 	ID      string
 	Version string
@@ -33,18 +57,29 @@ type capabilityKey struct {
 	Version  string
 }
 
+type dataFieldKey struct {
+	ModuleID          string
+	CapabilityID      string
+	CapabilityVersion string
+	ID                string
+	Version           string
+}
+
 type Catalog struct {
 	modules      map[moduleKey]ModuleDefinition
 	capabilities map[capabilityKey]CapabilityDefinition
+	dataFields   map[dataFieldKey]DataFieldDefinition
 }
 
 func New(
 	modules []ModuleDefinition,
 	capabilities []CapabilityDefinition,
+	dataFields []DataFieldDefinition,
 ) (Catalog, error) {
 	catalog := Catalog{
 		modules:      make(map[moduleKey]ModuleDefinition, len(modules)),
 		capabilities: make(map[capabilityKey]CapabilityDefinition, len(capabilities)),
+		dataFields:   make(map[dataFieldKey]DataFieldDefinition, len(dataFields)),
 	}
 
 	for _, definition := range modules {
@@ -71,15 +106,7 @@ func New(
 			return Catalog{}, ErrInvalidCapabilityDefinition
 		}
 
-		moduleExists := false
-		for key := range catalog.modules {
-			if key.ID == definition.ModuleID {
-				moduleExists = true
-				break
-			}
-		}
-
-		if !moduleExists {
+		if !hasModuleID(catalog.modules, definition.ModuleID) {
 			return Catalog{}, ErrUnknownModule
 		}
 
@@ -96,14 +123,65 @@ func New(
 		catalog.capabilities[key] = definition
 	}
 
+	for _, definition := range dataFields {
+		if definition.ModuleID == "" ||
+			definition.CapabilityID == "" ||
+			definition.CapabilityVersion == "" ||
+			definition.ID == "" ||
+			definition.Version == "" {
+			return Catalog{}, ErrInvalidDataFieldDefinition
+		}
+
+		if definition.ChangeKind != ChangeAdditive &&
+			definition.ChangeKind != ChangeIncompatible {
+			return Catalog{}, ErrInvalidDataFieldDefinition
+		}
+
+		capabilityKeyValue := capabilityKey{
+			ModuleID: definition.ModuleID,
+			ID:       definition.CapabilityID,
+			Version:  definition.CapabilityVersion,
+		}
+
+		if _, exists := catalog.capabilities[capabilityKeyValue]; !exists {
+			return Catalog{}, ErrUnknownCapability
+		}
+
+		key := dataFieldKey{
+			ModuleID:          definition.ModuleID,
+			CapabilityID:      definition.CapabilityID,
+			CapabilityVersion: definition.CapabilityVersion,
+			ID:                definition.ID,
+			Version:           definition.Version,
+		}
+
+		if _, exists := catalog.dataFields[key]; exists {
+			return Catalog{}, ErrDuplicateDataField
+		}
+
+		catalog.dataFields[key] = definition
+	}
+
 	return catalog, nil
 }
 
-func (c Catalog) Module(id string, version string) (ModuleDefinition, error) {
-	if id == "" || version == "" {
-		return ModuleDefinition{}, ErrUnknownModule
+func hasModuleID(
+	modules map[moduleKey]ModuleDefinition,
+	id string,
+) bool {
+	for key := range modules {
+		if key.ID == id {
+			return true
+		}
 	}
 
+	return false
+}
+
+func (c Catalog) Module(
+	id string,
+	version string,
+) (ModuleDefinition, error) {
 	key := moduleKey{
 		ID:      id,
 		Version: version,
@@ -122,10 +200,6 @@ func (c Catalog) Capability(
 	id string,
 	version string,
 ) (CapabilityDefinition, error) {
-	if moduleID == "" || id == "" || version == "" {
-		return CapabilityDefinition{}, ErrUnknownCapability
-	}
-
 	key := capabilityKey{
 		ModuleID: moduleID,
 		ID:       id,
@@ -138,4 +212,85 @@ func (c Catalog) Capability(
 	}
 
 	return definition, nil
+}
+
+func (c Catalog) DataField(
+	moduleID string,
+	capabilityID string,
+	capabilityVersion string,
+	id string,
+	version string,
+) (DataFieldDefinition, error) {
+	key := dataFieldKey{
+		ModuleID:          moduleID,
+		CapabilityID:      capabilityID,
+		CapabilityVersion: capabilityVersion,
+		ID:                id,
+		Version:           version,
+	}
+
+	definition, exists := c.dataFields[key]
+	if !exists {
+		return DataFieldDefinition{}, ErrUnknownDataField
+	}
+
+	return definition, nil
+}
+
+func (c Catalog) ValidateDataFieldTransition(
+	current []configuration.DataFieldReference,
+	next []configuration.DataFieldReference,
+) error {
+	currentSet := make(map[configuration.DataFieldReference]struct{}, len(current))
+
+	for _, field := range current {
+		currentSet[field] = struct{}{}
+	}
+
+	nextSet := make(map[configuration.DataFieldReference]struct{}, len(next))
+
+	for _, field := range next {
+		if _, exists := nextSet[field]; exists {
+			return configuration.ErrDuplicateDataField
+		}
+
+		if _, err := c.DataField(
+			field.ModuleID,
+			field.CapabilityID,
+			field.CapabilityVersion,
+			field.ID,
+			field.Version,
+		); err != nil {
+			return err
+		}
+
+		nextSet[field] = struct{}{}
+
+		if _, exists := currentSet[field]; exists {
+			continue
+		}
+
+		definition, err := c.DataField(
+			field.ModuleID,
+			field.CapabilityID,
+			field.CapabilityVersion,
+			field.ID,
+			field.Version,
+		)
+		if err != nil {
+			return err
+		}
+
+		if definition.ChangeKind == ChangeIncompatible {
+			return ErrIncompatibleDataFieldChange
+		}
+	}
+
+	for field := range currentSet {
+		if _, exists := nextSet[field]; !exists {
+			return ErrIncompatibleDataFieldChange
+		}
+	}
+
+	return nil
 }

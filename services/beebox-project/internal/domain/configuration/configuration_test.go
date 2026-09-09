@@ -122,3 +122,146 @@ func TestNew_RejectsMissingReference(t *testing.T) {
 		})
 	}
 }
+
+func TestWithDataFields_AddsControlledReferences(t *testing.T) {
+	current, err := configuration.New(
+		"project-1",
+		"auth",
+		"v1",
+		"login",
+		"v1",
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	fields := []configuration.DataFieldReference{
+		{
+			ModuleID:          "auth",
+			CapabilityID:      "login",
+			CapabilityVersion: "v1",
+			ID:                "email",
+			Version:           "v1",
+		},
+	}
+
+	got, err := current.WithDataFields(fields)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	if len(got.DataFields) != 1 {
+		t.Fatalf("expected one data field, got %d", len(got.DataFields))
+	}
+
+	if got.DataFields[0] != fields[0] {
+		t.Fatalf("expected data field reference %#v, got %#v", fields[0], got.DataFields[0])
+	}
+}
+
+func TestWithDataFields_RejectsMissingReferencePart(t *testing.T) {
+	tests := []struct {
+		name  string
+		field configuration.DataFieldReference
+	}{
+		{
+			name: "missing module ID",
+			field: configuration.DataFieldReference{
+				CapabilityID:      "login",
+				CapabilityVersion: "v1",
+				ID:                "email",
+				Version:           "v1",
+			},
+		},
+		{
+			name: "missing capability ID",
+			field: configuration.DataFieldReference{
+				ModuleID:          "auth",
+				CapabilityVersion: "v1",
+				ID:                "email",
+				Version:           "v1",
+			},
+		},
+		{
+			name: "missing capability version",
+			field: configuration.DataFieldReference{
+				ModuleID:     "auth",
+				CapabilityID: "login",
+				ID:           "email",
+				Version:      "v1",
+			},
+		},
+		{
+			name: "missing field ID",
+			field: configuration.DataFieldReference{
+				ModuleID:          "auth",
+				CapabilityID:      "login",
+				CapabilityVersion: "v1",
+				Version:           "v1",
+			},
+		},
+		{
+			name: "missing field version",
+			field: configuration.DataFieldReference{
+				ModuleID:          "auth",
+				CapabilityID:      "login",
+				CapabilityVersion: "v1",
+				ID:                "email",
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			current, err := configuration.New(
+				"project-1",
+				"auth",
+				"v1",
+				"login",
+				"v1",
+			)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			_, err = current.WithDataFields(
+				[]configuration.DataFieldReference{test.field},
+			)
+			if !errors.Is(err, configuration.ErrInvalidDataFieldReference) {
+				t.Fatalf(
+					"expected ErrInvalidDataFieldReference, got %v",
+					err,
+				)
+			}
+		})
+	}
+}
+
+func TestWithDataFields_RejectsDuplicateReference(t *testing.T) {
+	field := configuration.DataFieldReference{
+		ModuleID:          "auth",
+		CapabilityID:      "login",
+		CapabilityVersion: "v1",
+		ID:                "email",
+		Version:           "v1",
+	}
+
+	current, err := configuration.New(
+		"project-1",
+		"auth",
+		"v1",
+		"login",
+		"v1",
+	)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	_, err = current.WithDataFields([]configuration.DataFieldReference{
+		field,
+		field,
+	})
+	if !errors.Is(err, configuration.ErrDuplicateDataField) {
+		t.Fatalf("expected ErrDuplicateDataField, got %v", err)
+	}
+}
