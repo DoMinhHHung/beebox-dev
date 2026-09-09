@@ -45,12 +45,12 @@ go test ./...
 ```
 
 ### 2. Establish the Clean Architecture skeleton
-- [ ] Add `cmd/server/`.
-- [ ] Add `internal/domain/`.
-- [ ] Add `internal/application/`.
-- [ ] Add `internal/interfaces/`.
-- [ ] Add `internal/infrastructure/`.
-- [ ] Avoid placeholder abstractions that have no current responsibility.
+- [x] Add `cmd/server/`.
+- [x] Add `internal/domain/`.
+- [x] Add `internal/application/`.
+- [x] Add `internal/interfaces/`.
+- [x] Add `internal/infrastructure/`.
+- [x] Avoid placeholder abstractions that have no current responsibility.
 
 **Verify**
 ```bash
@@ -227,7 +227,7 @@ go test -race -count=1 ./...
 | Step | Status | Evidence |
 |---|---|---|
 | 1 | ✅ | go.mod initialized (github.com/DoMinhHHung/beebox-dev/services/beebox-project, go 1.26.5); `go test ./...` → no test files, no build errors |
-| 2 | ⬜ | |
+| 2 | ✅ | build/vet/test green; gofmt clean; no interfaces/abstractions added |
 | 3 | ⬜ | |
 | 4 | ⬜ | |
 | 5 | ⬜ | |
