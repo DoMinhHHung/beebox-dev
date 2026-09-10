@@ -139,11 +139,11 @@ go test ./... -count=1
 - Unit tests cover valid transitions and blocked transitions.
 
 ### 10. Define Project credentials
-- [ ] Define credential identity and lifecycle.
-- [ ] Separate project identity from end-user identity.
-- [ ] Support creation/revocation/expiry state where required.
-- [ ] Never persist or log raw secret material unintentionally.
-- [ ] Keep browser-safe/public credentials distinct from privileged server credentials.
+- [x] Define credential identity and lifecycle.
+- [x] Separate project identity from end-user identity.
+- [x] Support creation/revocation/expiry state where required.
+- [x] Never persist or log raw secret material unintentionally.
+- [x] Keep browser-safe/public credentials distinct from privileged server credentials.
 
 **Verify**
 - Unit tests cover creation, revocation, expiry, and invalid transitions.
@@ -231,7 +231,7 @@ go test -race -count=1 ./...
 | 7 | ✅ | Module and capability catalog metadata added; exact identifier/version lookup, configuration references, unknown references, mismatched versions, and duplicate definitions are covered by unit tests |
 | 8 | ✅ | Controlled data-field references added with exact catalog/version validation; supported, custom, duplicate, incompatible, and version-mismatch cases covered by tests |
 | 9 | ✅ | Version of configuration wall, lifecycle DRAFT→VALIDATED→PUBLISHED→APPLIED|
-| 10 | ⬜ | |
+| 10 | ✅ | Define project credential lifecycle. Keep browser-safe/public credentials distinct from privileged server credentials|
 | 11 | ⬜ | |
 | 12 | ⬜ | |
 | 13 | ⬜ | |
