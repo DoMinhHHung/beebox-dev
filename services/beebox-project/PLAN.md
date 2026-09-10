@@ -184,12 +184,13 @@ Group these infrastructure setup tasks together:
 - Config validation has unit tests for missing/invalid/valid values.
 
 ### 14. Integrate with repository CI
-- [ ] Ensure formatting checks pass.
-- [ ] Ensure `go mod verify` passes.
-- [ ] Ensure `go vet ./...` passes.
-- [ ] Ensure `go test -race -count=1 ./...` passes.
-- [ ] Keep external Supabase/Upstash dependencies out of pure unit tests.
-- [ ] Add integration-test execution separately when those tests are introduced.
+- [x] Ensure formatting checks pass. (existing root `.github/workflows/ci.yaml` auto-discovers this module's go.mod)
+- [x] Ensure `go mod verify` passes.
+- [x] Ensure `go vet ./...` passes.
+- [x] Ensure `go test -race -count=1 ./...` passes.
+- [x] Keep external Supabase/Upstash dependencies out of pure unit tests. (integration test is build-tag gated, memory repo used for unit tests)
+- [x] Add integration-test execution separately when those tests are introduced. (`.github/workflows/integration.yaml`, manual `workflow_dispatch`, skips gracefully without a configured secret)
+- [x] Fixed: `ci.yaml` push-branch pattern did not match this branch's naming convention (`beebox/**`); added so CI actually runs on push, not only on PR.
 
 **Verify**
 ```bash
@@ -236,7 +237,7 @@ go test -race -count=1 ./...
 | 11 | ✅ | HTTP boundary + full Project CRUD (create/get/transition/archive) via in-memory repository; apperror→HTTP status mapping; build/vet/test green; gofmt clean |
 | 12 | ✅ (Postgres only) | PostgresProjectRepository implements project.Repository; migration 0001 added; integration test tagged `integration`, skipped without BEEBOX_PROJECT_TEST_DATABASE_URL; Redis/Upstash boundary intentionally deferred per rule 12/28 until a concrete need exists |
 | 13 | ✅ | internal/infrastructure/config added with Load/validatePort, 6 unit tests (valid/missing/invalid); .env.example documents required vars without secrets; cmd/server fails fast on invalid config |
-| 14 | ⬜ | |
+| 14 | ✅ | Root CI (gofmt/mod verify/vet/test -race) auto-covers beebox-project via module discovery; added `beebox/**` to push trigger; added manual integration workflow for postgres tests |
 | 15 | ⬜ | |
 
 ## Completion Rule
