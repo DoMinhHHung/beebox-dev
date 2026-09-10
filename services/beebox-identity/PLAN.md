@@ -1,0 +1,303 @@
+# Plan — beebox-identity
+
+## Goal
+
+Build `services/beebox-identity` as the single BeeBox service responsible for end-user identity and authentication state.
+
+It must provide the identity foundation required by later services/modules without duplicating identity storage or business logic.
+
+## Scope
+
+### In scope
+
+- User identity
+- Credentials
+- Password authentication
+- Sessions
+- Authentication state
+- Token/session lifecycle required by the API contract
+- Email verification
+- Password recovery/reset
+- Authentication context for downstream services
+
+### Out of scope
+
+- Project lifecycle
+- Project configuration
+- Module catalog/configuration
+- Compute/storage provisioning
+- Billing
+- API gateway
+- Developer-facing auth capability catalog
+- Enterprise SSO unless a concrete requirement is introduced
+
+---
+
+## Phase 0 — Preconditions
+
+- [ ] `beebox-project` is merged into `main`
+- [ ] Any committed database credential/secret is revoked or rotated
+- [ ] `.env.example` contains placeholders only
+- [ ] Repository/port ownership decision from `beebox-project` is resolved consistently with the current Clean Architecture rule
+
+## Phase 1 — Bootstrap
+
+- [ ] Create `services/beebox-identity`
+- [ ] Initialize Go module with Go 1.26.5
+- [ ] Create Clean Architecture package structure
+- [ ] Add service entrypoint and composition root
+- [ ] Add local `apperror`
+- [ ] Add configuration loading and startup validation
+- [ ] Add initial README
+
+Acceptance:
+
+- Service builds
+- No business logic in transport
+- No infrastructure dependency in domain
+- CI can discover and test the service
+
+## Phase 2 — Domain foundation
+
+- [ ] Define `User`
+- [ ] Define identity identifier/value objects needed by current use cases
+- [ ] Define credential model
+- [ ] Define password credential state
+- [ ] Define session model
+- [ ] Define domain errors
+- [ ] Add domain invariant tests
+
+Acceptance:
+
+- Domain package has no infrastructure imports
+- Domain tests run without PostgreSQL
+- No premature organization/project authorization model
+
+## Phase 3 — Application boundaries
+
+- [ ] Define user repository port
+- [ ] Define credential repository port
+- [ ] Define session repository port
+- [ ] Define password hashing port
+- [ ] Define required clock/token/security ports only when a use case needs them
+- [ ] Implement application use cases
+- [ ] Add application error translation
+- [ ] Add application tests
+
+Initial use cases:
+
+- [ ] Sign up
+- [ ] Sign in
+- [ ] Sign out
+- [ ] Revoke session
+
+Acceptance:
+
+- Use cases are independently testable
+- Domain rules stay in domain
+- Infrastructure is not imported by application/domain
+
+## Phase 4 — PostgreSQL infrastructure
+
+- [ ] Add PostgreSQL connection configuration
+- [ ] Create identity-owned migrations
+- [ ] Implement user repository
+- [ ] Implement credential repository
+- [ ] Implement session repository
+- [ ] Add transaction handling where a use case requires atomic writes
+- [ ] Add integration tests where repository behavior cannot be validated with unit tests
+
+Acceptance:
+
+- `beebox-identity` owns its own schema
+- No other service accesses identity tables
+- Database errors do not leak through the API
+
+## Phase 5 — Password security
+
+- [ ] Select a maintained password hashing implementation
+- [ ] Implement password hash/verify adapter
+- [ ] Enforce password policy at the appropriate application/domain boundary
+- [ ] Ensure plaintext passwords never enter logs
+- [ ] Test valid password verification
+- [ ] Test invalid password verification
+- [ ] Test malformed/invalid stored hashes safely
+
+Acceptance:
+
+- Passwords are never stored plaintext
+- Password hashing is not custom cryptography
+- Authentication failures do not expose sensitive details
+
+## Phase 6 — HTTP API
+
+- [ ] Define public request/response DTOs
+- [ ] Implement signup endpoint
+- [ ] Implement signin endpoint
+- [ ] Implement signout endpoint
+- [ ] Implement session/revocation endpoint only when required
+- [ ] Add request validation
+- [ ] Map `apperror.Code` to HTTP status
+- [ ] Standardize public error JSON
+
+Initial public shape:
+
+```text
+POST /v1/auth/signup
+POST /v1/auth/signin
+POST /v1/auth/signout
+```
+
+Do not add endpoints merely for future compatibility.
+
+Acceptance:
+
+- Transport contains HTTP concerns only
+- Public responses never expose internal errors
+- Authentication failure behavior is intentionally defined
+
+## Phase 7 — Session and token lifecycle
+
+- [ ] Define access/session model based on the actual client contract
+- [ ] Define expiration
+- [ ] Define revocation
+- [ ] Define refresh behavior if required
+- [ ] Implement secure session/token storage
+- [ ] Add tests for expiration
+- [ ] Add tests for revocation
+- [ ] Add tests for refresh/reuse behavior if refresh tokens are introduced
+
+Decision rule:
+
+Prefer the simplest secure session model that satisfies the frontend contract.
+
+Do not introduce JWT unless there is a concrete requirement.
+
+Do not introduce Redis for sessions until PostgreSQL is proven insufficient.
+
+## Phase 8 — Email verification
+
+- [ ] Define verification state
+- [ ] Define verification token lifecycle
+- [ ] Define token expiration
+- [ ] Define single-use behavior
+- [ ] Add verification endpoint
+- [ ] Add application tests
+- [ ] Keep email delivery behind an explicit port
+
+Do not add RabbitMQ merely because email is asynchronous.
+
+If reliable asynchronous delivery becomes necessary, introduce a queue in a separate, justified change.
+
+## Phase 9 — Password recovery
+
+- [ ] Define recovery state
+- [ ] Define recovery token lifecycle
+- [ ] Define expiration
+- [ ] Define single-use behavior
+- [ ] Add request-recovery endpoint
+- [ ] Add reset-password endpoint
+- [ ] Prevent account enumeration through public responses
+- [ ] Add tests for expiry and reuse
+
+## Phase 10 — Authentication context
+
+- [ ] Define the authenticated principal contract
+- [ ] Define how downstream BeeBox services validate authentication
+- [ ] Define stable identity/user identifiers
+- [ ] Document trust boundaries
+- [ ] Document token/session verification contract
+
+Do not build `beebox-gateway` as part of this phase.
+
+The goal is to establish a clean identity contract that a later gateway or service can consume.
+
+## Phase 11 — Integration contract
+
+- [ ] Document API endpoints
+- [ ] Document authentication headers/tokens
+- [ ] Document error codes
+- [ ] Document session lifecycle
+- [ ] Document downstream authentication contract
+- [ ] Document what `beebox-project` may consume from identity
+- [ ] Document what `modules/beebox-auth` exposes versus what identity implements
+
+Acceptance:
+
+- Another BeeBox service can integrate without reading identity source code.
+
+## Phase 12 — CI and final review
+
+- [ ] `gofmt -l .` returns no files
+- [ ] `go mod verify` passes
+- [ ] `go vet ./...` passes
+- [ ] `go test -race -count=1 ./...` passes
+- [ ] No comments in source code
+- [ ] No TODO/FIXME in source code
+- [ ] No real credentials/secrets committed
+- [ ] Dependency direction reviewed
+- [ ] README reflects the real architecture
+- [ ] API contract matches implementation
+
+---
+
+## PR slicing
+
+### PR 1 — bootstrap
+
+- Phase 1
+- CI/discovery compatibility
+- README
+
+### PR 2 — domain
+
+- Phase 2
+- Domain tests
+
+### PR 3 — application auth foundation
+
+- Phase 3
+- Signup/signin application use cases
+
+### PR 4 — PostgreSQL
+
+- Phase 4
+- Repository integration tests
+
+### PR 5 — HTTP auth
+
+- Phase 5
+- Phase 6
+
+### PR 6 — sessions
+
+- Phase 7
+
+### PR 7 — verification/recovery
+
+- Phase 8
+- Phase 9
+
+### PR 8 — downstream contract
+
+- Phase 10
+- Phase 11
+- Final CI/review
+
+---
+
+## Progress tracker
+
+- [ ] Phase 0 — Preconditions
+- [ ] Phase 1 — Bootstrap
+- [ ] Phase 2 — Domain foundation
+- [ ] Phase 3 — Application boundaries
+- [ ] Phase 4 — PostgreSQL infrastructure
+- [ ] Phase 5 — Password security
+- [ ] Phase 6 — HTTP API
+- [ ] Phase 7 — Session/token lifecycle
+- [ ] Phase 8 — Email verification
+- [ ] Phase 9 — Password recovery
+- [ ] Phase 10 — Authentication context
+- [ ] Phase 11 — Integration contract
+- [ ] Phase 12 — CI and final review
