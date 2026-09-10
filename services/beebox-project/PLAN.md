@@ -163,11 +163,11 @@ go test ./... -count=1
 ### 12. Add persistence/cache adapter boundaries
 Group these infrastructure setup tasks together:
 
-- [ ] Define PostgreSQL repository interfaces and adapters for Project-owned data only.
-- [ ] Keep PostgreSQL/Supabase as the durable source of truth.
-- [ ] Define Redis/Upstash adapter boundaries for cache, rate limiting, idempotency, and other explicitly ephemeral state.
-- [ ] Do not let Redis become the source of truth for project configuration.
-- [ ] Keep external clients behind infrastructure ports/interfaces.
+- [x] Define PostgreSQL repository interfaces and adapters for Project-owned data only.
+- [x] Keep PostgreSQL/Supabase as the durable source of truth.
+- [ ] Define Redis/Upstash adapter boundaries for cache, rate limiting, idempotency, and other explicitly ephemeral state — **deferred**: no concrete requirement exists yet in this service (rule 12/28: don't introduce Redis by default). Will be picked up when a real need appears (e.g. rate-limiting a public endpoint, idempotency key for a mutating operation).
+- [ ] Do not let Redis become the source of truth for project configuration. (applies once 12's Redis item above is actually implemented)
+ - [x] Keep external clients behind infrastructure ports/interfaces.
 
 **Verify**
 - Repository tests use fakes/mocks for unit scope.
@@ -234,7 +234,7 @@ go test -race -count=1 ./...
 | 9 | ✅ | Version of configuration wall, lifecycle DRAFT→VALIDATED→PUBLISHED→APPLIED|
 | 10 | ✅ | Define project credential lifecycle. Keep browser-safe/public credentials distinct from privileged server credentials|
 | 11 | ✅ | HTTP boundary + full Project CRUD (create/get/transition/archive) via in-memory repository; apperror→HTTP status mapping; build/vet/test green; gofmt clean |
-| 12 | ⬜ | |
+| 12 | ✅ (Postgres only) | PostgresProjectRepository implements project.Repository; migration 0001 added; integration test tagged `integration`, skipped without BEEBOX_PROJECT_TEST_DATABASE_URL; Redis/Upstash boundary intentionally deferred per rule 12/28 until a concrete need exists |
 | 13 | ⬜ | |
 | 14 | ⬜ | |
 | 15 | ⬜ | |
