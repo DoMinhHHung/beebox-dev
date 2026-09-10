@@ -90,8 +90,12 @@ func New(
 
 func (i IssuedCredential) String() string {
 	return fmt.Sprintf(
-		"IssuedCredential{Credential:%+v Secret:REDACTED}",
-		i.Credential,
+		"IssuedCredential{ProjectID:%s ID:%s Name:%s Kind:%s Status:%s Secret:REDACTED}",
+		i.Credential.ProjectID,
+		i.Credential.ID,
+		i.Credential.Name,
+		i.Credential.Kind,
+		i.Credential.Status,
 	)
 }
 
@@ -139,7 +143,7 @@ func (c Credential) Expire(now time.Time) (Credential, error) {
 }
 
 func (c Credential) Matches(candidate string) bool {
-	if c.Status != StatusActive {
+	if c.Status != StatusActive || c.IsExpired(time.Now()) {
 		return false
 	}
 
