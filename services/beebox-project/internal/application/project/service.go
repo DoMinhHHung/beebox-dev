@@ -63,6 +63,9 @@ func (s *Service) Transition(ctx context.Context, id string, to domainproject.St
 		if errors.Is(err, ErrProjectNotFound) {
 			return domainproject.Project{}, apperror.New(apperror.CodeNotFound, "project not found")
 		}
+		if errors.Is(err, ErrProjectConflict) {
+			return domainproject.Project{}, apperror.New(apperror.CodeConflict, "project was updated concurrently")
+		}
 		return domainproject.Project{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to update project", err)
 	}
 

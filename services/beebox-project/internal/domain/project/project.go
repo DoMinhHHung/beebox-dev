@@ -20,6 +20,7 @@ type Project struct {
 	ID             string
 	OrganizationID string
 	Status         Status
+	Revision       int
 }
 
 func New(id string, organizationID string) (Project, error) {
@@ -40,6 +41,7 @@ func (p Project) Transition(to Status) (Project, error) {
 	}
 
 	p.Status = to
+	p.Revision++
 	return p, nil
 }
 

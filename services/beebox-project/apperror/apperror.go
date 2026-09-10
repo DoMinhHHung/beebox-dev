@@ -10,6 +10,7 @@ const (
 	CodeForbidden         Code = "FORBIDDEN"
 	CodeNotFound          Code = "NOT_FOUND"
 	CodeConflict          Code = "CONFLICT"
+	CodePayloadTooLarge   Code = "PAYLOAD_TOO_LARGE"
 	CodeDependencyFailure Code = "DEPENDENCY_FAILURE"
 	CodeInternal          Code = "INTERNAL"
 )

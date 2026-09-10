@@ -10,6 +10,7 @@ import (
 var (
 	ErrProjectNotFound      = errors.New("project not found")
 	ErrProjectAlreadyExists = errors.New("project already exists")
+	ErrProjectConflict      = errors.New("project revision conflict")
 )
 
 type Repository interface {
