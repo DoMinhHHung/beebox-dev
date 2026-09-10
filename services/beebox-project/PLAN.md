@@ -201,14 +201,14 @@ go test -race -count=1 ./...
 ```
 
 ### 15. Finish documentation and architecture review
-- [ ] Add/update `services/beebox-project/README.md`.
-- [ ] Document service responsibility and non-responsibilities.
-- [ ] Document package boundaries and dependency direction.
-- [ ] Document the centralized `apperror` contract.
-- [ ] Document Project/Module/Capability/Configuration/Credential/Infrastructure ownership.
-- [ ] Confirm no gateway logic or other service business logic leaked into the service.
-- [ ] Run the complete verification one final time.
-- [ ] Update this plan so all completed steps are marked `[x]` before committing.
+- [x] Add/update `services/beebox-project/README.md`.
+- [x] Document service responsibility and non-responsibilities.
+- [x] Document package boundaries and dependency direction.
+- [x] Document the centralized `apperror` contract.
+- [x] Document Project/Module/Capability/Configuration/Credential/Infrastructure ownership.
+- [x] Confirm no gateway logic or other service business logic leaked into the service.
+- [x] Run the complete verification one final time.
+- [x] Update this plan so all completed steps are marked `[x]` before committing.
 
 **Final verification**
 ```bash
@@ -238,7 +238,7 @@ go test -race -count=1 ./...
 | 12 | ✅ (Postgres only) | PostgresProjectRepository implements project.Repository; migration 0001 added; integration test tagged `integration`, skipped without BEEBOX_PROJECT_TEST_DATABASE_URL; Redis/Upstash boundary intentionally deferred per rule 12/28 until a concrete need exists |
 | 13 | ✅ | internal/infrastructure/config added with Load/validatePort, 6 unit tests (valid/missing/invalid); .env.example documents required vars without secrets; cmd/server fails fast on invalid config |
 | 14 | ✅ | Root CI (gofmt/mod verify/vet/test -race) auto-covers beebox-project via module discovery; added `beebox/**` to push trigger; added manual integration workflow for postgres tests |
-| 15 | ⬜ | |
+| 15 | ✅ | README.md added; full boundary review re-confirmed via static grep (no framework imports in domain, no service locator, no giant utils, all interfaces have justified compile-time checks); final gofmt/vet/test -race all green |
 
 ## Completion Rule
 
