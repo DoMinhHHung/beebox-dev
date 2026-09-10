@@ -150,11 +150,12 @@ go test ./... -count=1
 - Error/log paths do not expose secret material.
 
 ### 11. Define HTTP/API boundary
-- [ ] Add versioned HTTP routing under `internal/interfaces/http/`.
-- [ ] Define request/response adapters for the Project service.
-- [ ] Map `apperror` categories to stable transport errors.
-- [ ] Keep handlers free of domain/persistence logic.
-- [ ] Explicitly document that `beebox-project` is not an API gateway.
+- [x] Add versioned HTTP routing under `internal/interfaces/http/`.
+- [x] Define request/response adapters for the Project service.
+- [x] Map `apperror` categories to stable transport errors.
+- [x] Keep handlers free of domain/persistence logic.
+- [x] Explicitly document that `beebox-project` is not an API gateway.
+- [x] Scope expanded (by decision) to include full Project CRUD (`Create`/`Get`/`Transition`/`Archive`) via a new `internal/application/project` use-case layer and a temporary `internal/infrastructure/memory` repository, both implementing the `Repository` port that Step 12 will re-implement against Postgres.
 
 **Verify**
 - Add handler tests for success, validation, not found, forbidden, conflict, and internal error paths.
@@ -232,7 +233,7 @@ go test -race -count=1 ./...
 | 8 | ✅ | Controlled data-field references added with exact catalog/version validation; supported, custom, duplicate, incompatible, and version-mismatch cases covered by tests |
 | 9 | ✅ | Version of configuration wall, lifecycle DRAFT→VALIDATED→PUBLISHED→APPLIED|
 | 10 | ✅ | Define project credential lifecycle. Keep browser-safe/public credentials distinct from privileged server credentials|
-| 11 | ⬜ | |
+| 11 | ✅ | HTTP boundary + full Project CRUD (create/get/transition/archive) via in-memory repository; apperror→HTTP status mapping; build/vet/test green; gofmt clean |
 | 12 | ⬜ | |
 | 13 | ⬜ | |
 | 14 | ⬜ | |
