@@ -6,6 +6,7 @@ on:
       - main
       - "feat/**"
       - "fix/**"
+      - "beebox/**"
   pull_request:
     types: [opened, synchronize, reopened]
 
