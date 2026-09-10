@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
 
@@ -11,7 +12,7 @@ import (
 func TestHealthz_ReturnsOK(t *testing.T) {
 	router := NewRouter(project.NewService(memory.NewProjectRepository()))
 
-	req := httptest.NewRequest("GET", "/healthz", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/healthz", nil)
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)

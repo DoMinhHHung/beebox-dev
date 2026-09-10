@@ -4,8 +4,10 @@ package postgres_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	domainproject "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/postgres"
@@ -32,7 +34,11 @@ func TestProjectRepository_CreateGetUpdate(t *testing.T) {
 	repo := newTestPool(t)
 	ctx := context.Background()
 
-	p := domainproject.Project{ID: "integration-project-1", OrganizationID: "org-1", Status: domainproject.StatusDraft}
+	p := domainproject.Project{
+		ID:             fmt.Sprintf("integration-project-%d", time.Now().UnixNano()),
+		OrganizationID: "org-1",
+		Status:         domainproject.StatusDraft,
+	}
 
 	if err := repo.Create(ctx, p); err != nil {
 		t.Fatalf("expected no error, got %v", err)

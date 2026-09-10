@@ -18,6 +18,8 @@ func statusForCode(code apperror.Code) int {
 		return http.StatusNotFound
 	case apperror.CodeConflict:
 		return http.StatusConflict
+	case apperror.CodePayloadTooLarge:
+		return http.StatusRequestEntityTooLarge
 	case apperror.CodeDependencyFailure:
 		return http.StatusBadGateway
 	case apperror.CodeInternal:

@@ -17,6 +17,7 @@ func TestStatusForCode_MapsEveryKnownCode(t *testing.T) {
 		{apperror.CodeForbidden, http.StatusForbidden},
 		{apperror.CodeNotFound, http.StatusNotFound},
 		{apperror.CodeConflict, http.StatusConflict},
+		{apperror.CodePayloadTooLarge, http.StatusRequestEntityTooLarge},
 		{apperror.CodeDependencyFailure, http.StatusBadGateway},
 		{apperror.CodeInternal, http.StatusInternalServerError},
 	}

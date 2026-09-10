@@ -2,12 +2,32 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/apperror"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 	domainproject "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/project"
 )
+
+const maxJSONBodyBytes = 1 << 20
+
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, dest any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(dest); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return apperror.New(apperror.CodePayloadTooLarge, "request body too large")
+		}
+		return apperror.New(apperror.CodeValidation, "invalid request body")
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return apperror.New(apperror.CodeValidation, "invalid request body")
+	}
+	return nil
+}
 
 type projectHandler struct {
 	service *project.Service
@@ -34,8 +54,8 @@ type createProjectRequest struct {
 
 func (h *projectHandler) create(w http.ResponseWriter, r *http.Request) {
 	var req createProjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, apperror.New(apperror.CodeValidation, "invalid request body"))
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		writeError(w, err)
 		return
 	}
 
@@ -83,8 +103,8 @@ func (h *projectHandler) transition(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 
 	var req transitionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, apperror.New(apperror.CodeValidation, "invalid request body"))
+	if err := decodeJSONBody(w, r, &req); err != nil {
+		writeError(w, err)
 		return
 	}
 
