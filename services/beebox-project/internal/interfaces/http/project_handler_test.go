@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +30,7 @@ func doJSON(t *testing.T, router *http.ServeMux, method string, path string, bod
 		reader = bytes.NewReader(nil)
 	}
 
-	req := httptest.NewRequest(method, path, reader)
+	req := httptest.NewRequestWithContext(context.Background(), method, path, reader)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
@@ -47,7 +48,7 @@ func TestCreateProject_ReturnsCreated(t *testing.T) {
 func TestCreateProject_RejectsInvalidBody(t *testing.T) {
 	router := newTestRouter()
 
-	req := httptest.NewRequest("POST", "/v1/projects", bytes.NewReader([]byte("{not json")))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/v1/projects", bytes.NewReader([]byte("{not json")))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 

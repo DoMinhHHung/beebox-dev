@@ -72,6 +72,7 @@ func TestUpdate_PersistsChange(t *testing.T) {
 	}
 
 	p.Status = domainproject.StatusActive
+	p.Revision++
 	if err := repo.Update(ctx, p); err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

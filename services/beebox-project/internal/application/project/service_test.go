@@ -47,8 +47,12 @@ func (r *fakeRepository) Update(ctx context.Context, p domainproject.Project) er
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, exists := r.projects[p.ID]; !exists {
+	current, exists := r.projects[p.ID]
+	if !exists {
 		return project.ErrProjectNotFound
+	}
+	if current.Revision != p.Revision-1 {
+		return project.ErrProjectConflict
 	}
 	r.projects[p.ID] = p
 	return nil
