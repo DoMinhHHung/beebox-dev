@@ -174,10 +174,10 @@ Group these infrastructure setup tasks together:
 - External integration tests are isolated from unit tests.
 
 ### 13. Add migrations and service configuration
-- [ ] Add `migrations/` for `beebox-project` owned tables only.
-- [ ] Define environment/config loading and validation.
-- [ ] Document required local configuration without committing secrets.
-- [ ] Fail fast on invalid required configuration.
+- [x] Add `migrations/` for `beebox-project` owned tables only. (added in Step 12: 0001_create_projects.sql)
+- [x] Define environment/config loading and validation.
+- [x] Document required local configuration without committing secrets. (.env.example)
+- [x] Fail fast on invalid required configuration.
 
 **Verify**
 - Migration files are deterministic.
@@ -235,7 +235,7 @@ go test -race -count=1 ./...
 | 10 | ✅ | Define project credential lifecycle. Keep browser-safe/public credentials distinct from privileged server credentials|
 | 11 | ✅ | HTTP boundary + full Project CRUD (create/get/transition/archive) via in-memory repository; apperror→HTTP status mapping; build/vet/test green; gofmt clean |
 | 12 | ✅ (Postgres only) | PostgresProjectRepository implements project.Repository; migration 0001 added; integration test tagged `integration`, skipped without BEEBOX_PROJECT_TEST_DATABASE_URL; Redis/Upstash boundary intentionally deferred per rule 12/28 until a concrete need exists |
-| 13 | ⬜ | |
+| 13 | ✅ | internal/infrastructure/config added with Load/validatePort, 6 unit tests (valid/missing/invalid); .env.example documents required vars without secrets; cmd/server fails fast on invalid config |
 | 14 | ⬜ | |
 | 15 | ⬜ | |
 

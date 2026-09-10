@@ -7,14 +7,20 @@ import (
 	"os"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/config"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/postgres"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/interfaces/http"
 )
 
 func main() {
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		log.Fatalf("beebox-project: invalid configuration: %v", err)
+	}
+
 	ctx := context.Background()
 
-	pool, err := postgres.NewPool(ctx, os.Getenv("DATABASE_URL"))
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("beebox-project: failed to connect to database: %v", err)
 	}
@@ -24,8 +30,9 @@ func main() {
 	service := project.NewService(repo)
 	router := interfaceshttp.NewRouter(service)
 
-	log.Println("beebox-project: listening on :8080")
-	if err := http.ListenAndServe(":8080", router); err != nil {
+	addr := ":" + cfg.Port
+	log.Printf("beebox-project: listening on %s", addr)
+	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal(err)
 	}
 }
