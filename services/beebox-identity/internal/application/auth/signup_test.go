@@ -44,6 +44,10 @@ func (f *fakeCredentialRepository) Create(_ context.Context, value credential.Cr
 	return f.createErr
 }
 
+func (f *fakeCredentialRepository) Update(context.Context, credential.Credential) error {
+	return nil
+}
+
 func (f *fakeCredentialRepository) FindByUserID(context.Context, identity.Identifier) (credential.Credential, error) {
 	return credential.Credential{}, ErrNotFound
 }

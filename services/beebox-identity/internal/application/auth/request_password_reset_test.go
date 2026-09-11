@@ -34,6 +34,11 @@ func (f *fakePasswordResetRepository) Create(_ context.Context, value passwordre
 	return f.createErr
 }
 
+func (f *fakePasswordResetRepository) FindByID(_ context.Context, _ string) (passwordreset.PasswordReset, error) {
+	f.findCalls++
+	return f.findValue, f.findErr
+}
+
 func (f *fakePasswordResetRepository) FindPending(_ context.Context, _ identity.Identifier) (passwordreset.PasswordReset, error) {
 	f.findCalls++
 	return f.findValue, f.findErr

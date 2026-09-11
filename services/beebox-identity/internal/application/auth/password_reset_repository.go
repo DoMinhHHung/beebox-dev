@@ -9,6 +9,7 @@ import (
 
 type PasswordResetRepository interface {
 	Create(ctx context.Context, value passwordreset.PasswordReset) error
+	FindByID(ctx context.Context, id string) (passwordreset.PasswordReset, error)
 	FindPending(ctx context.Context, userID identity.Identifier) (passwordreset.PasswordReset, error)
 	MarkUsed(ctx context.Context, value passwordreset.PasswordReset) error
 }

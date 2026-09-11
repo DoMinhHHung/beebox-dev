@@ -58,3 +58,11 @@ func (p Credential) RevokedAt() (time.Time, bool) {
 	}
 	return *p.revokedAt, true
 }
+
+func (p Credential) ChangePassword(newPasswordHash string) (Credential, error) {
+	if newPasswordHash == "" || p.IsRevoked() {
+		return Credential{}, domain.ErrInvalidCredential
+	}
+	p.passwordHash = newPasswordHash
+	return p, nil
+}

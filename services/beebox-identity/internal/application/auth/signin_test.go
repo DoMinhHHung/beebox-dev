@@ -37,6 +37,10 @@ func (f *fakeSignInCredentialRepository) Create(context.Context, credential.Cred
 	return nil
 }
 
+func (f *fakeSignInCredentialRepository) Update(context.Context, credential.Credential) error {
+	return nil
+}
+
 func (f *fakeSignInCredentialRepository) FindByUserID(context.Context, identity.Identifier) (credential.Credential, error) {
 	f.findCalls++
 	return f.findCredential, f.findErr

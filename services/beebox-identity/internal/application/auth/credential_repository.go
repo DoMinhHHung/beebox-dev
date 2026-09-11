@@ -10,4 +10,5 @@ import (
 type CredentialRepository interface {
 	Create(ctx context.Context, value credential.Credential) error
 	FindByUserID(ctx context.Context, userID identity.Identifier) (credential.Credential, error)
+	Update(ctx context.Context, value credential.Credential) error
 }
