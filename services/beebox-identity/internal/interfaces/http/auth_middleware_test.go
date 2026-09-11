@@ -33,6 +33,10 @@ func (f *middlewareSessionRepo) Revoke(context.Context, session.Session) error {
 	return nil
 }
 
+func (f *middlewareSessionRepo) RevokeAllByUserID(context.Context, identity.Identifier, time.Time) error {
+	return nil
+}
+
 func TestExtractBearerToken(t *testing.T) {
 	cases := []struct {
 		name    string

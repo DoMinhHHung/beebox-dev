@@ -89,6 +89,10 @@ func (f *fakeSignInSessionRepository) Revoke(context.Context, session.Session) e
 	return nil
 }
 
+func (f *fakeSignInSessionRepository) RevokeAllByUserID(context.Context, identity.Identifier, time.Time) error {
+	return nil
+}
+
 var _ UserRepository = (*fakeSignInUserRepository)(nil)
 var _ CredentialRepository = (*fakeSignInCredentialRepository)(nil)
 var _ PasswordHasher = (*fakeSignInPasswordHasher)(nil)

@@ -37,6 +37,10 @@ func (f *fakeRevokeSessionRepository) Revoke(_ context.Context, value session.Se
 	return f.revokeErr
 }
 
+func (f *fakeRevokeSessionRepository) RevokeAllByUserID(context.Context, identity.Identifier, time.Time) error {
+	return nil
+}
+
 var _ SessionRepository = (*fakeRevokeSessionRepository)(nil)
 
 type fakeRevokeSessionClock struct {
