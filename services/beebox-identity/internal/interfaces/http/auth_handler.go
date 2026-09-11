@@ -85,14 +85,14 @@ type signOutRequest struct {
 }
 
 func (h *authHandler) handleSignOut(w http.ResponseWriter, r *http.Request) {
-	var req signOutRequest
-	if err := decodeJSONBody(w, r, &req); err != nil {
+	token, err := extractBearerToken(r.Header.Get("Authorization"))
+	if err != nil {
 		writeError(w, err)
 		return
 	}
 
 	if err := h.revokeSession.RevokeSession(r.Context(), auth.RevokeSessionInput{
-		SessionID: req.SessionID,
+		SessionID: token,
 	}); err != nil {
 		writeError(w, err)
 		return

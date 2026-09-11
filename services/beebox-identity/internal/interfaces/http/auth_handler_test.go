@@ -275,10 +275,14 @@ func TestSignOutSuccess(t *testing.T) {
 	storageID := authHashToken(token)
 	s, _ := session.New(storageID, userID, now.Add(-time.Hour), now.Add(time.Hour))
 	sessions := &httpFakeSessionRepo{findValue: s}
-	svc := auth.NewRevokeSessionService(sessions, &httpFakeClock{now: now})
-	mux := testRouter(t, Dependencies{RevokeSession: svc})
+	revoker := auth.NewRevokeSessionService(sessions, &httpFakeClock{now: now})
+	authenticator := auth.NewAuthenticateSessionService(sessions, &httpFakeClock{now: now})
+	mux := testRouter(t, Dependencies{RevokeSession: revoker, AuthenticateSession: authenticator})
 
-	rec := postJSON(t, mux, "/auth/signout", map[string]string{"session_id": token})
+	req := httptest.NewRequest(http.MethodPost, "/auth/signout", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d body=%s", rec.Code, rec.Body.String())
 	}
