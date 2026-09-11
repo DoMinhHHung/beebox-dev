@@ -52,7 +52,9 @@ type signInRequest struct {
 }
 
 type signInResponse struct {
-	UserID string `json:"user_id"`
+	UserID    string    `json:"user_id"`
+	SessionID string    `json:"session_id"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 func (h *authHandler) handleSignIn(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +73,11 @@ func (h *authHandler) handleSignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, signInResponse{UserID: result.UserID.String()})
+	writeJSON(w, http.StatusOK, signInResponse{
+		UserID:    result.UserID.String(),
+		SessionID: result.SessionID,
+		ExpiresAt: result.ExpiresAt,
+	})
 }
 
 type signOutRequest struct {

@@ -175,18 +175,26 @@ Acceptance:
 
 ## Phase 7 — Session and token lifecycle
 
-- [ ] Define access/session model based on the actual client contract
-- [ ] Define expiration
-- [ ] Define revocation
+- [x] Define access/session model based on the actual client contract
+- [x] Define expiration
+- [x] Define revocation
 - [ ] Define refresh behavior if required
-- [ ] Implement secure session/token storage
-- [ ] Add tests for expiration
-- [ ] Add tests for revocation
+- [x] Implement secure session/token storage
+- [x] Add tests for expiration
+- [x] Add tests for revocation
 - [ ] Add tests for refresh/reuse behavior if refresh tokens are introduced
+- [x] SignIn creates opaque session token and persists hashed session id
+- [x] SignOut accepts client opaque token and revokes by hash
+- [ ] Invalidate sessions after password reset (deferred; needs RevokeAllByUserID + ResetPassword wiring)
+- [ ] Authentication context / middleware for protected routes
 
 Decision rule:
 
 Prefer the simplest secure session model that satisfies the frontend contract.
+
+Opaque random session tokens are used (not JWT).
+Client receives the opaque token; persistence stores SHA-256(token) as Session.ID.
+Session TTL is 24 hours.
 
 Do not introduce JWT unless there is a concrete requirement.
 

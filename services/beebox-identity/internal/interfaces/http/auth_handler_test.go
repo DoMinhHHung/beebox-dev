@@ -228,7 +228,7 @@ func TestSignInSuccess(t *testing.T) {
 	users := &httpFakeUserRepo{findUser: u}
 	credentials := &httpFakeCredentialRepo{findValue: c}
 	hasher := &httpFakeHasher{}
-	svc := auth.NewSignInService(users, credentials, hasher)
+	svc := auth.NewSignInService(users, credentials, hasher, clock)
 	mux := testRouter(t, Dependencies{SignIn: svc})
 
 	rec := postJSON(t, mux, "/auth/signin", map[string]string{

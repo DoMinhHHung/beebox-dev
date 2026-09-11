@@ -2,10 +2,22 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
+	"time"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/identity"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/session"
+)
+
+const (
+	defaultSessionTTL = 24 * time.Hour
+	sessionTokenBytes = 32
 )
 
 type SignInInput struct {
@@ -14,20 +26,36 @@ type SignInInput struct {
 }
 
 type SignInResult struct {
-	UserID identity.Identifier
+	UserID    identity.Identifier
+	SessionID string
+	ExpiresAt time.Time
 }
 
 type SignInService struct {
 	users       UserRepository
 	credentials CredentialRepository
+	sessions    SessionRepository
 	hasher      PasswordHasher
+	clock       Clock
+	ttl         time.Duration
+	randReader  io.Reader
 }
 
-func NewSignInService(users UserRepository, credentials CredentialRepository, hasher PasswordHasher) *SignInService {
+func NewSignInService(
+	users UserRepository,
+	credentials CredentialRepository,
+	sessions SessionRepository,
+	hasher PasswordHasher,
+	clock Clock,
+) *SignInService {
 	return &SignInService{
 		users:       users,
 		credentials: credentials,
+		sessions:    sessions,
 		hasher:      hasher,
+		clock:       clock,
+		ttl:         defaultSessionTTL,
+		randReader:  rand.Reader,
 	}
 }
 
@@ -63,5 +91,42 @@ func (s *SignInService) SignIn(ctx context.Context, input SignInInput) (SignInRe
 		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
 	}
 
-	return SignInResult{UserID: foundUser.ID()}, nil
+	token, err := generateSessionToken(s.randReader)
+	if err != nil {
+		return SignInResult{}, apperror.Wrap(apperror.CodeInternal, "session token generation failed", err)
+	}
+	storageID := hashSessionToken(token)
+
+	now := s.clock.Now()
+	expiresAt := now.Add(s.ttl)
+	newSession, err := session.New(storageID, foundUser.ID(), now, expiresAt)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidSession) {
+			return SignInResult{}, apperror.Wrap(apperror.CodeInternal, "invalid session state", err)
+		}
+		return SignInResult{}, apperror.Wrap(apperror.CodeInternal, "internal error", err)
+	}
+
+	if err := s.sessions.Create(ctx, newSession); err != nil {
+		return SignInResult{}, translateRepositoryError(err)
+	}
+
+	return SignInResult{
+		UserID:    foundUser.ID(),
+		SessionID: token,
+		ExpiresAt: newSession.ExpiresAt(),
+	}, nil
+}
+
+func generateSessionToken(r io.Reader) (string, error) {
+	buf := make([]byte, sessionTokenBytes)
+	if _, err := io.ReadFull(r, buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+func hashSessionToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

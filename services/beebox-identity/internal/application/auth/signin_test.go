@@ -1,14 +1,19 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"io"
 	"testing"
 	"time"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/credential"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/identity"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/session"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/user"
 )
 
@@ -37,13 +42,13 @@ func (f *fakeSignInCredentialRepository) Create(context.Context, credential.Cred
 	return nil
 }
 
-func (f *fakeSignInCredentialRepository) Update(context.Context, credential.Credential) error {
-	return nil
-}
-
 func (f *fakeSignInCredentialRepository) FindByUserID(context.Context, identity.Identifier) (credential.Credential, error) {
 	f.findCalls++
 	return f.findCredential, f.findErr
+}
+
+func (f *fakeSignInCredentialRepository) Update(context.Context, credential.Credential) error {
+	return nil
 }
 
 type fakeSignInPasswordHasher struct {
@@ -64,9 +69,30 @@ func (f *fakeSignInPasswordHasher) Verify(_ context.Context, plaintext, password
 	return f.verifyErr
 }
 
+type fakeSignInSessionRepository struct {
+	createErr   error
+	createCalls int
+	created     session.Session
+}
+
+func (f *fakeSignInSessionRepository) Create(_ context.Context, value session.Session) error {
+	f.createCalls++
+	f.created = value
+	return f.createErr
+}
+
+func (f *fakeSignInSessionRepository) FindByID(context.Context, string) (session.Session, error) {
+	return session.Session{}, ErrNotFound
+}
+
+func (f *fakeSignInSessionRepository) Revoke(context.Context, session.Session) error {
+	return nil
+}
+
 var _ UserRepository = (*fakeSignInUserRepository)(nil)
 var _ CredentialRepository = (*fakeSignInCredentialRepository)(nil)
 var _ PasswordHasher = (*fakeSignInPasswordHasher)(nil)
+var _ SessionRepository = (*fakeSignInSessionRepository)(nil)
 
 func signInUserForTest(t *testing.T) user.User {
 	t.Helper()
@@ -95,182 +121,121 @@ func signInCredentialForTest(t *testing.T) credential.Credential {
 }
 
 func TestSignInSuccess(t *testing.T) {
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
 	credentials := &fakeSignInCredentialRepository{findCredential: signInCredentialForTest(t)}
+	sessions := &fakeSignInSessionRepository{}
 	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
+	clock := &fakeClock{now: now}
+	service := NewSignInService(users, credentials, sessions, hasher, clock)
 
 	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "plain-secret"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.UserID.String() != "user-1" {
-		t.Fatalf("expected user ID user-1, got %q", result.UserID)
+		t.Fatalf("unexpected user id: %s", result.UserID)
 	}
-	if users.findCalls != 1 {
-		t.Fatalf("expected one user lookup, got %d", users.findCalls)
+	if result.SessionID == "" || len(result.SessionID) != 64 {
+		t.Fatalf("expected opaque session token, got %q", result.SessionID)
 	}
-	if credentials.findCalls != 1 {
-		t.Fatalf("expected one credential lookup, got %d", credentials.findCalls)
+	if !result.ExpiresAt.Equal(now.Add(24 * time.Hour)) {
+		t.Fatalf("unexpected expires at: %v", result.ExpiresAt)
 	}
-	if hasher.verifyCalls != 1 || hasher.verifyPlaintext != "plain-secret" || hasher.verifyHash != "stored-hash" {
-		t.Fatalf("expected hasher to verify signin password against stored hash")
+	if sessions.createCalls != 1 {
+		t.Fatalf("expected session create, got %d", sessions.createCalls)
 	}
-}
-
-func TestSignInRejectsEmptyIdentifier(t *testing.T) {
-	users := &fakeSignInUserRepository{}
-	credentials := &fakeSignInCredentialRepository{}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "", Password: "secret"})
-	if result != (SignInResult{}) {
-		t.Fatal("expected empty result")
+	if sessions.created.ID() == result.SessionID {
+		t.Fatal("plaintext session token must not be persisted as session id")
 	}
-	if !apperror.IsCode(err, apperror.CodeValidation) {
-		t.Fatalf("expected validation error, got %v", err)
+	sum := sha256.Sum256([]byte(result.SessionID))
+	expected := hex.EncodeToString(sum[:])
+	if sessions.created.ID() != expected {
+		t.Fatalf("expected stored session id to be token hash")
 	}
-	if users.findCalls != 0 || credentials.findCalls != 0 || hasher.verifyCalls != 0 {
-		t.Fatal("expected no dependency interaction for invalid input")
+	if sessions.created.UserID().String() != "user-1" {
+		t.Fatal("unexpected session user id")
 	}
-}
-
-func TestSignInRejectsEmptyPassword(t *testing.T) {
-	users := &fakeSignInUserRepository{}
-	credentials := &fakeSignInCredentialRepository{}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: ""})
-	if result != (SignInResult{}) {
-		t.Fatal("expected empty result")
+	if !sessions.created.IsActive(now) {
+		t.Fatal("expected active session")
 	}
-	if !apperror.IsCode(err, apperror.CodeValidation) {
-		t.Fatalf("expected validation error, got %v", err)
-	}
-	if users.findCalls != 0 || credentials.findCalls != 0 || hasher.verifyCalls != 0 {
-		t.Fatal("expected no dependency interaction for invalid input")
+	if hasher.verifyCalls != 1 || hasher.verifyPlaintext != "plain-secret" {
+		t.Fatal("expected password verification")
 	}
 }
 
-func TestSignInRejectsInvalidIdentifierPerDomain(t *testing.T) {
-	users := &fakeSignInUserRepository{}
-	credentials := &fakeSignInCredentialRepository{}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "   ", Password: "secret"})
-	if result != (SignInResult{}) {
-		t.Fatal("expected empty result")
-	}
-	if !apperror.IsCode(err, apperror.CodeValidation) {
-		t.Fatalf("expected validation error, got %v", err)
-	}
-	if users.findCalls != 0 || credentials.findCalls != 0 || hasher.verifyCalls != 0 {
-		t.Fatal("expected no dependency interaction for invalid input")
-	}
-}
-
-func TestSignInRejectsUnknownUser(t *testing.T) {
+func TestSignInInvalidCredentialsUserMissing(t *testing.T) {
 	users := &fakeSignInUserRepository{findErr: ErrNotFound}
-	credentials := &fakeSignInCredentialRepository{}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "secret"})
+	service := NewSignInService(users, &fakeSignInCredentialRepository{}, &fakeSignInSessionRepository{}, &fakeSignInPasswordHasher{}, &fakeClock{now: time.Now().UTC()})
+	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "missing", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeUnauthenticated) {
-		t.Fatalf("expected unauthenticated error, got %v", err)
-	}
-	if credentials.findCalls != 0 || hasher.verifyCalls != 0 {
-		t.Fatal("expected no credential lookup or password verification for unknown user")
+		t.Fatalf("expected unauthenticated, got %v", err)
 	}
 }
 
-func TestSignInMapsUserRepositoryFailure(t *testing.T) {
-	users := &fakeSignInUserRepository{findErr: errors.New("repository unavailable")}
-	credentials := &fakeSignInCredentialRepository{}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "secret"})
-	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
-		t.Fatalf("expected dependency failure, got %v", err)
-	}
-	if credentials.findCalls != 0 || hasher.verifyCalls != 0 {
-		t.Fatal("expected no credential lookup or password verification after user repository failure")
-	}
-}
-
-func TestSignInRejectsMissingCredential(t *testing.T) {
-	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
-	credentials := &fakeSignInCredentialRepository{findErr: ErrNotFound}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "secret"})
-	if !apperror.IsCode(err, apperror.CodeUnauthenticated) {
-		t.Fatalf("expected unauthenticated error, got %v", err)
-	}
-	if hasher.verifyCalls != 0 {
-		t.Fatal("expected no password verification when credential is missing")
-	}
-}
-
-func TestSignInMapsCredentialRepositoryFailure(t *testing.T) {
-	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
-	credentials := &fakeSignInCredentialRepository{findErr: errors.New("repository unavailable")}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
-
-	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "secret"})
-	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
-		t.Fatalf("expected dependency failure, got %v", err)
-	}
-	if hasher.verifyCalls != 0 {
-		t.Fatal("expected no password verification after credential repository failure")
-	}
-}
-
-func TestSignInRejectsWrongPassword(t *testing.T) {
+func TestSignInInvalidCredentialsPassword(t *testing.T) {
 	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
 	credentials := &fakeSignInCredentialRepository{findCredential: signInCredentialForTest(t)}
-	hasher := &fakeSignInPasswordHasher{verifyErr: errors.New("password mismatch")}
-	service := NewSignInService(users, credentials, hasher)
-
-	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "wrong-secret"})
-	if result != (SignInResult{}) {
-		t.Fatal("expected empty result")
-	}
+	hasher := &fakeSignInPasswordHasher{verifyErr: errors.New("mismatch")}
+	service := NewSignInService(users, credentials, &fakeSignInSessionRepository{}, hasher, &fakeClock{now: time.Now().UTC()})
+	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "wrong"})
 	if !apperror.IsCode(err, apperror.CodeUnauthenticated) {
-		t.Fatalf("expected unauthenticated error, got %v", err)
+		t.Fatalf("expected unauthenticated, got %v", err)
 	}
 }
 
-func TestSignInReturnsMatchingUserID(t *testing.T) {
-	identifier, err := identity.NewIdentifier("distinct-user")
-	if err != nil {
-		t.Fatalf("unexpected identifier error: %v", err)
+func TestSignInValidation(t *testing.T) {
+	service := NewSignInService(&fakeSignInUserRepository{}, &fakeSignInCredentialRepository{}, &fakeSignInSessionRepository{}, &fakeSignInPasswordHasher{}, &fakeClock{now: time.Now().UTC()})
+	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: ""})
+	if !apperror.IsCode(err, apperror.CodeValidation) {
+		t.Fatalf("expected validation, got %v", err)
 	}
-	distinctUser, err := user.New(identifier, time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("unexpected user error: %v", err)
-	}
-	distinctCredential, err := credential.NewPassword(identifier, "stored-hash", time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatalf("unexpected credential error: %v", err)
-	}
+}
 
-	users := &fakeSignInUserRepository{findUser: distinctUser}
-	credentials := &fakeSignInCredentialRepository{findCredential: distinctCredential}
-	hasher := &fakeSignInPasswordHasher{}
-	service := NewSignInService(users, credentials, hasher)
+func TestSignInSessionRepositoryFailure(t *testing.T) {
+	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
+	credentials := &fakeSignInCredentialRepository{findCredential: signInCredentialForTest(t)}
+	sessions := &fakeSignInSessionRepository{createErr: errors.New("db")}
+	service := NewSignInService(users, credentials, sessions, &fakeSignInPasswordHasher{}, &fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)})
+	_, err := service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "secret"})
+	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
+		t.Fatalf("expected dependency failure, got %v", err)
+	}
+}
 
-	result, err := service.SignIn(context.Background(), SignInInput{Identifier: "distinct-user", Password: "plain-secret"})
+func TestSignInDoesNotCreateSessionOnAuthFailure(t *testing.T) {
+	users := &fakeSignInUserRepository{findErr: ErrNotFound}
+	sessions := &fakeSignInSessionRepository{}
+	service := NewSignInService(users, &fakeSignInCredentialRepository{}, sessions, &fakeSignInPasswordHasher{}, &fakeClock{now: time.Now().UTC()})
+	_, _ = service.SignIn(context.Background(), SignInInput{Identifier: "x", Password: "y"})
+	if sessions.createCalls != 0 {
+		t.Fatal("must not create session on auth failure")
+	}
+}
+
+func TestGenerateSessionTokenUsesCryptoRand(t *testing.T) {
+	fixed := bytes.Repeat([]byte{0xcd}, sessionTokenBytes)
+	token, err := generateSessionToken(bytes.NewReader(fixed))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.UserID != identifier {
-		t.Fatalf("expected user ID %q, got %q", identifier, result.UserID)
+	if token != hex.EncodeToString(fixed) {
+		t.Fatal("unexpected token encoding")
+	}
+}
+
+func TestGenerateSessionTokenRejectsBadReader(t *testing.T) {
+	_, err := generateSessionToken(io.LimitReader(bytes.NewReader(nil), 0))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestHashSessionToken(t *testing.T) {
+	h1 := hashSessionToken("token-a")
+	h2 := hashSessionToken("token-a")
+	h3 := hashSessionToken("token-b")
+	if h1 != h2 || h1 == h3 || h1 == "token-a" {
+		t.Fatal("unexpected hash behavior")
 	}
 }

@@ -29,7 +29,8 @@ func (s *RevokeSessionService) RevokeSession(ctx context.Context, input RevokeSe
 		return apperror.New(apperror.CodeValidation, "invalid revoke session input")
 	}
 
-	foundSession, err := s.sessions.FindByID(ctx, input.SessionID)
+	storageID := hashSessionToken(input.SessionID)
+	foundSession, err := s.sessions.FindByID(ctx, storageID)
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrNotFound):
