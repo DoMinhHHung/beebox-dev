@@ -191,7 +191,7 @@ func TestSignUpSuccess(t *testing.T) {
 	users := &httpFakeUserRepo{findErr: auth.ErrNotFound}
 	credentials := &httpFakeCredentialRepo{}
 	hasher := &httpFakeHasher{hashValue: "hash"}
-	svc := auth.NewSignUpService(users, credentials, hasher, &httpFakeClock{now: now})
+	svc := auth.NewSignUpService(users, credentials, hasher, &httpFakeClock{now: now}, nil)
 	mux := testRouter(t, Dependencies{SignUp: svc})
 
 	rec := postJSON(t, mux, "/auth/signup", map[string]string{
@@ -211,7 +211,7 @@ func TestSignUpSuccess(t *testing.T) {
 }
 
 func TestSignUpValidation(t *testing.T) {
-	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()})
+	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()}, nil)
 	mux := testRouter(t, Dependencies{SignUp: svc})
 	rec := postJSON(t, mux, "/auth/signup", map[string]string{"identifier": "", "password": ""})
 	if rec.Code != http.StatusBadRequest {
@@ -378,7 +378,7 @@ func TestResetPasswordSuccess(t *testing.T) {
 	resets := &httpFakePasswordResetRepo{findValue: reset}
 	credentials := &httpFakeCredentialRepo{findValue: cred}
 	hasher := &httpFakeHasher{hashValue: "new-hash"}
-	svc := auth.NewResetPasswordService(resets, credentials, hasher, &httpFakeClock{now: now})
+	svc := auth.NewResetPasswordService(resets, credentials, hasher, &httpFakeClock{now: now}, nil)
 	mux := testRouter(t, Dependencies{ResetPassword: svc})
 
 	rec := postJSON(t, mux, "/auth/password-reset/reset", map[string]string{
@@ -399,7 +399,7 @@ func TestResetPasswordSuccess(t *testing.T) {
 }
 
 func TestMalformedJSON(t *testing.T) {
-	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()})
+	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()}, nil)
 	mux := testRouter(t, Dependencies{SignUp: svc})
 	rec := postJSON(t, mux, "/auth/signup", "{not-json")
 	if rec.Code != http.StatusBadRequest {
@@ -413,7 +413,7 @@ func TestApplicationErrorMappingConflict(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	u, _ := user.New(userID, now)
 	users := &httpFakeUserRepo{findUser: u}
-	svc := auth.NewSignUpService(users, &httpFakeCredentialRepo{}, &httpFakeHasher{hashValue: "h"}, &httpFakeClock{now: now})
+	svc := auth.NewSignUpService(users, &httpFakeCredentialRepo{}, &httpFakeHasher{hashValue: "h"}, &httpFakeClock{now: now}, nil)
 	mux := testRouter(t, Dependencies{SignUp: svc})
 	rec := postJSON(t, mux, "/auth/signup", map[string]string{"identifier": "user-1", "password": "secret"})
 	if rec.Code != http.StatusConflict {
@@ -434,7 +434,7 @@ func TestInternalErrorGenericMessage(t *testing.T) {
 }
 
 func TestNoPanicOnEmptyBody(t *testing.T) {
-	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()})
+	svc := auth.NewSignUpService(&httpFakeUserRepo{}, &httpFakeCredentialRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()}, nil)
 	mux := testRouter(t, Dependencies{SignUp: svc})
 	req := httptest.NewRequest(http.MethodPost, "/auth/signup", strings.NewReader(""))
 	rec := httptest.NewRecorder()
