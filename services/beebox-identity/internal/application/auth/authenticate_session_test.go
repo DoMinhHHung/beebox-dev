@@ -32,6 +32,10 @@ func (f *fakeAuthenticateSessionRepository) Revoke(context.Context, session.Sess
 	return nil
 }
 
+func (f *fakeAuthenticateSessionRepository) RevokeAllByUserID(context.Context, identity.Identifier, time.Time) error {
+	return nil
+}
+
 var _ SessionRepository = (*fakeAuthenticateSessionRepository)(nil)
 
 func activeSessionForAuthTest(t *testing.T, token string, now time.Time) session.Session {
