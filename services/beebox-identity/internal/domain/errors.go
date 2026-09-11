@@ -8,4 +8,7 @@ var (
 	ErrInvalidCredential         = errors.New("invalid credential")
 	ErrInvalidSession            = errors.New("invalid session")
 	ErrSessionRevoked            = errors.New("session revoked")
+	ErrInvalidVerification       = errors.New("invalid verification")
+	ErrVerificationUsed          = errors.New("verification used")
+	ErrVerificationExpired       = errors.New("verification expired")
 )

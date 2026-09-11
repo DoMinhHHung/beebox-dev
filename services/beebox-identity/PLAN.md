@@ -42,30 +42,30 @@ It must provide the identity foundation required by later services/modules witho
 
 ## Phase 1 — Bootstrap
 
-- [ ] Create `services/beebox-identity`
-- [ ] Initialize Go module with Go 1.26.5
-- [ ] Create Clean Architecture package structure
-- [ ] Add service entrypoint and composition root
-- [ ] Add local `apperror`
-- [ ] Add configuration loading and startup validation
-- [ ] Add initial README
+- [x] Create `services/beebox-identity`
+- [x] Initialize Go module with Go 1.26.5
+- [x] Create Clean Architecture package structure
+- [x] Add service entrypoint and composition root
+- [x] Add local `apperror`
+- [x] Add configuration loading and startup validation
+- [x] Add initial README
 
 Acceptance:
 
-- Service builds
-- No business logic in transport
-- No infrastructure dependency in domain
-- CI can discover and test the service
+- [x] Service builds
+- [x] No business logic in transport
+- [x] No infrastructure dependency in domain
+- [x] CI can discover and test the service
 
 ## Phase 2 — Domain foundation
 
-- [ ] Define `User`
-- [ ] Define identity identifier/value objects needed by current use cases
-- [ ] Define credential model
-- [ ] Define password credential state
-- [ ] Define session model
-- [ ] Define domain errors
-- [ ] Add domain invariant tests
+- [x] Define `User`
+- [x] Define identity identifier/value objects needed by current use cases
+- [x] Define credential model
+- [x] Define password credential state
+- [x] Define session model
+- [x] Define domain errors
+- [x] Add domain invariant tests
 
 Acceptance:
 
@@ -75,21 +75,30 @@ Acceptance:
 
 ## Phase 3 — Application boundaries
 
-- [ ] Define user repository port
-- [ ] Define credential repository port
-- [ ] Define session repository port
-- [ ] Define password hashing port
-- [ ] Define required clock/token/security ports only when a use case needs them
-- [ ] Implement application use cases
-- [ ] Add application error translation
-- [ ] Add application tests
+- [x] Define user repository port
+- [x] Define credential repository port
+- [x] Define session repository port
+- [x] Define password hashing port
+- [x] Define required clock/token/security ports only when a use case needs them
+- [x] Implement application use cases
+- [x] Add application error translation
+- [x] Add application tests
 
 Initial use cases:
 
-- [ ] Sign up
-- [ ] Sign in
-- [ ] Sign out
-- [ ] Revoke session
+- [x] Sign up
+- [x] Sign in
+- [x] Sign out
+- [x] Revoke session
+
+Verification foundation:
+
+- [x] Define verification domain model and types (email, phone)
+- [x] Define verification repository port
+- [x] Implement RequestVerification use case
+- [x] Implement Verify use case
+- [x] Secure one-time code generation and hash storage
+- [x] Application and domain tests for verification lifecycle
 
 Acceptance:
 
@@ -175,19 +184,27 @@ Do not introduce JWT unless there is a concrete requirement.
 
 Do not introduce Redis for sessions until PostgreSQL is proven insufficient.
 
-## Phase 8 — Email verification
+## Phase 8 — Email and phone verification
 
-- [ ] Define verification state
-- [ ] Define verification token lifecycle
-- [ ] Define token expiration
-- [ ] Define single-use behavior
-- [ ] Add verification endpoint
-- [ ] Add application tests
-- [ ] Keep email delivery behind an explicit port
+- [ ] Define email verification product flow
+- [ ] Define phone verification product flow
+- [ ] Define verification request endpoint
+- [ ] Define verification confirmation endpoint
+- [ ] Define how successful verification updates identity state
+- [ ] Add email delivery port
+- [ ] Add phone/SMS delivery port
+- [ ] Implement email verification flow
+- [ ] Implement phone verification flow
+- [ ] Add tests for verification success/failure
+- [ ] Add tests for expiry and reuse
+- [ ] Add account-enumeration protection
+- [ ] Add delivery failure handling
 
-Do not add RabbitMQ merely because email is asynchronous.
+Delivery rules:
 
-If reliable asynchronous delivery becomes necessary, introduce a queue in a separate, justified change.
+- Do not couple identity domain to SMTP/SMS providers.
+- Do not introduce RabbitMQ merely because delivery is asynchronous.
+- Introduce a queue only when reliable asynchronous delivery becomes a concrete requirement.
 
 ## Phase 9 — Password recovery
 
@@ -273,7 +290,7 @@ Acceptance:
 
 - Phase 7
 
-### PR 7 — verification/recovery
+### PR 7 — Verification and recovery
 
 - Phase 8
 - Phase 9
@@ -289,14 +306,14 @@ Acceptance:
 ## Progress tracker
 
 - [ ] Phase 0 — Preconditions
-- [ ] Phase 1 — Bootstrap
-- [ ] Phase 2 — Domain foundation
-- [ ] Phase 3 — Application boundaries
+- [x] Phase 1 — Bootstrap
+- [x] Phase 2 — Domain foundation
+- [x] Phase 3 — Application boundaries
 - [ ] Phase 4 — PostgreSQL infrastructure
 - [ ] Phase 5 — Password security
 - [ ] Phase 6 — HTTP API
 - [ ] Phase 7 — Session/token lifecycle
-- [ ] Phase 8 — Email verification
+- [ ] Phase 8 — Email and phone verification
 - [ ] Phase 9 — Password recovery
 - [ ] Phase 10 — Authentication context
 - [ ] Phase 11 — Integration contract
