@@ -227,8 +227,9 @@ func TestSignInSuccess(t *testing.T) {
 	c, _ := credential.NewPassword(userID, "hash", now)
 	users := &httpFakeUserRepo{findUser: u}
 	credentials := &httpFakeCredentialRepo{findValue: c}
+	sessions := &httpFakeSessionRepo{}
 	hasher := &httpFakeHasher{}
-	svc := auth.NewSignInService(users, credentials, hasher, clock)
+	svc := auth.NewSignInService(users, credentials, sessions, hasher, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{SignIn: svc})
 
 	rec := postJSON(t, mux, "/auth/signin", map[string]string{
@@ -245,11 +246,17 @@ func TestSignInSuccess(t *testing.T) {
 	if body.UserID != "user-1" {
 		t.Fatalf("unexpected user_id")
 	}
+	if body.SessionID == "" {
+		t.Fatal("expected session_id")
+	}
+	if body.ExpiresAt.IsZero() {
+		t.Fatal("expected expires_at")
+	}
 }
 
 func TestSignInUnauthenticated(t *testing.T) {
 	users := &httpFakeUserRepo{findErr: auth.ErrNotFound}
-	svc := auth.NewSignInService(users, &httpFakeCredentialRepo{}, &httpFakeHasher{})
+	svc := auth.NewSignInService(users, &httpFakeCredentialRepo{}, &httpFakeSessionRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()})
 	mux := testRouter(t, Dependencies{SignIn: svc})
 	rec := postJSON(t, mux, "/auth/signin", map[string]string{
 		"identifier": "missing",
@@ -264,12 +271,14 @@ func TestSignInUnauthenticated(t *testing.T) {
 func TestSignOutSuccess(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	s, _ := session.New("session-1", userID, now.Add(-time.Hour), now.Add(time.Hour))
+	token := "client-opaque-session-token-value-for-http-test-01"
+	storageID := authHashToken(token)
+	s, _ := session.New(storageID, userID, now.Add(-time.Hour), now.Add(time.Hour))
 	sessions := &httpFakeSessionRepo{findValue: s}
 	svc := auth.NewRevokeSessionService(sessions, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{RevokeSession: svc})
 
-	rec := postJSON(t, mux, "/auth/signout", map[string]string{"session_id": "session-1"})
+	rec := postJSON(t, mux, "/auth/signout", map[string]string{"session_id": token})
 	if rec.Code != http.StatusNoContent {
 		t.Fatalf("expected 204, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -411,7 +420,7 @@ func TestApplicationErrorMappingConflict(t *testing.T) {
 
 func TestInternalErrorGenericMessage(t *testing.T) {
 	users := &httpFakeUserRepo{findErr: errors.New("db exploded")}
-	svc := auth.NewSignInService(users, &httpFakeCredentialRepo{}, &httpFakeHasher{})
+	svc := auth.NewSignInService(users, &httpFakeCredentialRepo{}, &httpFakeSessionRepo{}, &httpFakeHasher{}, &httpFakeClock{now: time.Now().UTC()})
 	mux := testRouter(t, Dependencies{SignIn: svc})
 	rec := postJSON(t, mux, "/auth/signin", map[string]string{"identifier": "user-1", "password": "secret"})
 	if rec.Code != http.StatusBadGateway {
