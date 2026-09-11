@@ -208,14 +208,21 @@ Delivery rules:
 
 ## Phase 9 — Password recovery
 
-- [ ] Define recovery state
-- [ ] Define recovery token lifecycle
-- [ ] Define expiration
-- [ ] Define single-use behavior
+- [x] Define recovery state
+- [x] Define recovery token lifecycle
+- [x] Define expiration
+- [x] Define single-use behavior
 - [ ] Add request-recovery endpoint
 - [ ] Add reset-password endpoint
 - [ ] Prevent account enumeration through public responses
-- [ ] Add tests for expiry and reuse
+- [x] Add tests for expiry and reuse
+
+Password recovery foundation:
+
+- [x] Define recovery domain model
+- [x] Define recovery repository port
+- [x] Implement RequestPasswordReset use case
+- [x] Add recovery lifecycle tests
 
 ## Phase 10 — Authentication context
 

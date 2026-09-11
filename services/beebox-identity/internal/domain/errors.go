@@ -11,4 +11,7 @@ var (
 	ErrInvalidVerification       = errors.New("invalid verification")
 	ErrVerificationUsed          = errors.New("verification used")
 	ErrVerificationExpired       = errors.New("verification expired")
+	ErrInvalidPasswordReset      = errors.New("invalid password reset")
+	ErrPasswordResetUsed         = errors.New("password reset used")
+	ErrPasswordResetExpired      = errors.New("password reset expired")
 )
