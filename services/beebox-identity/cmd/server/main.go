@@ -20,7 +20,7 @@ func main() {
 		log.Fatalf("beebox-identity: invalid configuration: %v", err)
 	}
 
-	router := interfaceshttp.NewRouter()
+	router := interfaceshttp.NewRouter(interfaceshttp.Dependencies{})
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

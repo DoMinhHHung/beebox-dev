@@ -1,11 +1,43 @@
 package http
 
-import "net/http"
+import (
+	"net/http"
 
-func NewRouter() *http.ServeMux {
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/application/auth"
+)
+
+type Dependencies struct {
+	SignUp               *auth.SignUpService
+	SignIn               *auth.SignInService
+	RevokeSession        *auth.RevokeSessionService
+	RequestVerification  *auth.RequestVerificationService
+	Verify               *auth.VerifyService
+	RequestPasswordReset *auth.RequestPasswordResetService
+	ResetPassword        *auth.ResetPasswordService
+}
+
+func NewRouter(deps Dependencies) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /healthz", handleHealthz)
+
+	h := &authHandler{
+		signUp:               deps.SignUp,
+		signIn:               deps.SignIn,
+		revokeSession:        deps.RevokeSession,
+		requestVerification:  deps.RequestVerification,
+		verify:               deps.Verify,
+		requestPasswordReset: deps.RequestPasswordReset,
+		resetPassword:        deps.ResetPassword,
+	}
+
+	mux.HandleFunc("POST /auth/signup", h.handleSignUp)
+	mux.HandleFunc("POST /auth/signin", h.handleSignIn)
+	mux.HandleFunc("POST /auth/signout", h.handleSignOut)
+	mux.HandleFunc("POST /auth/verification/request", h.handleRequestVerification)
+	mux.HandleFunc("POST /auth/verification/verify", h.handleVerify)
+	mux.HandleFunc("POST /auth/password-reset/request", h.handleRequestPasswordReset)
+	mux.HandleFunc("POST /auth/password-reset/reset", h.handleResetPassword)
 
 	return mux
 }

@@ -140,21 +140,29 @@ Acceptance:
 
 ## Phase 6 — HTTP API
 
-- [ ] Define public request/response DTOs
-- [ ] Implement signup endpoint
-- [ ] Implement signin endpoint
-- [ ] Implement signout endpoint
-- [ ] Implement session/revocation endpoint only when required
-- [ ] Add request validation
-- [ ] Map `apperror.Code` to HTTP status
-- [ ] Standardize public error JSON
+- [x] Define public request/response DTOs
+- [x] Implement signup endpoint
+- [x] Implement signin endpoint
+- [x] Implement signout endpoint
+- [x] Implement session/revocation endpoint only when required
+- [x] Add request validation
+- [x] Map `apperror.Code` to HTTP status
+- [x] Standardize public error JSON
+- [x] Implement verification request/verify endpoints
+- [x] Implement password-reset request/reset endpoints
+- [x] Enumeration protection for password-reset request
 
 Initial public shape:
 
 ```text
-POST /v1/auth/signup
-POST /v1/auth/signin
-POST /v1/auth/signout
+GET  /healthz
+POST /auth/signup
+POST /auth/signin
+POST /auth/signout
+POST /auth/verification/request
+POST /auth/verification/verify
+POST /auth/password-reset/request
+POST /auth/password-reset/reset
 ```
 
 Do not add endpoints merely for future compatibility.
@@ -318,7 +326,7 @@ Acceptance:
 - [x] Phase 3 — Application boundaries
 - [ ] Phase 4 — PostgreSQL infrastructure
 - [ ] Phase 5 — Password security
-- [ ] Phase 6 — HTTP API
+- [x] Phase 6 — HTTP API
 - [ ] Phase 7 — Session/token lifecycle
 - [ ] Phase 8 — Email and phone verification
 - [ ] Phase 9 — Password recovery

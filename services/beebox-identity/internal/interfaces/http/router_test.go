@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-func TestHealthz(t *testing.T) {
+func TestHealthzRoute(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 
-	NewRouter().ServeHTTP(recorder, request)
+	NewRouter(Dependencies{}).ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
