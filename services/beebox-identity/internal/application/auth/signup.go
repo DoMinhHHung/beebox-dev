@@ -3,67 +3,82 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/credential"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/identity"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/user"
 )
 
-type SignInInput struct {
+type SignUpInput struct {
 	Identifier string
 	Password   string
 }
 
-type SignInResult struct {
+type SignUpResult struct {
 	UserID identity.Identifier
 }
 
-type SignInService struct {
+type SignUpService struct {
 	users       UserRepository
 	credentials CredentialRepository
 	hasher      PasswordHasher
+	clock       Clock
 }
 
-func NewSignInService(users UserRepository, credentials CredentialRepository, hasher PasswordHasher) *SignInService {
-	return &SignInService{
+func NewSignUpService(users UserRepository, credentials CredentialRepository, hasher PasswordHasher, clock Clock) *SignUpService {
+	return &SignUpService{
 		users:       users,
 		credentials: credentials,
 		hasher:      hasher,
+		clock:       clock,
 	}
 }
 
-func (s *SignInService) SignIn(ctx context.Context, input SignInInput) (SignInResult, error) {
-	if input.Password == "" {
-		return SignInResult{}, apperror.New(apperror.CodeValidation, "invalid signin input")
+func (s *SignUpService) SignUp(ctx context.Context, input SignUpInput) (SignUpResult, error) {
+	if strings.TrimSpace(input.Identifier) == "" || input.Password == "" {
+		return SignUpResult{}, apperror.New(apperror.CodeValidation, "invalid signup input")
 	}
 
 	identifier, err := identity.NewIdentifier(input.Identifier)
 	if err != nil {
-		return SignInResult{}, apperror.Wrap(apperror.CodeValidation, "invalid signin input", err)
+		return SignUpResult{}, translateDomainError(err)
 	}
 
-	foundUser, err := s.users.FindByIdentifier(ctx, identifier)
+	_, err = s.users.FindByIdentifier(ctx, identifier)
 	switch {
 	case err == nil:
+		return SignUpResult{}, apperror.New(apperror.CodeConflict, "identity already exists")
 	case errors.Is(err, ErrNotFound):
-		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
 	case err != nil:
-		return SignInResult{}, translateRepositoryError(err)
+		return SignUpResult{}, translateRepositoryError(err)
 	}
 
-	foundCredential, err := s.credentials.FindByUserID(ctx, foundUser.ID())
-	switch {
-	case err == nil:
-	case errors.Is(err, ErrNotFound):
-		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
-	case err != nil:
-		return SignInResult{}, translateRepositoryError(err)
+	passwordHash, err := s.hasher.Hash(ctx, input.Password)
+	if err != nil {
+		return SignUpResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "password hashing failed", err)
 	}
 
-	if err := s.hasher.Verify(ctx, input.Password, foundCredential.PasswordHash()); err != nil {
-		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
+	now := s.clock.Now()
+	newUser, err := user.New(identifier, now)
+	if err != nil {
+		return SignUpResult{}, translateDomainError(err)
+	}
+	newCredential, err := credential.NewPassword(identifier, passwordHash, now)
+	if err != nil {
+		return SignUpResult{}, translateDomainError(err)
 	}
 
-	return SignInResult{UserID: foundUser.ID()}, nil
+	if err := s.users.Create(ctx, newUser); err != nil {
+		return SignUpResult{}, translateRepositoryError(err)
+	}
+	if err := s.credentials.Create(ctx, newCredential); err != nil {
+		return SignUpResult{}, translateRepositoryError(err)
+	}
+
+	return SignUpResult{UserID: newUser.ID()}, nil
 }
 
 func translateDomainError(err error) error {
