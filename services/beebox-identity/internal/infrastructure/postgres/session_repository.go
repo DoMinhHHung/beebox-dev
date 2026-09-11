@@ -93,4 +93,13 @@ func sessionRevokedAt(value session.Session) *time.Time {
 	return nil
 }
 
+func (r *SessionRepository) RevokeAllByUserID(ctx context.Context, userID identity.Identifier, revokedAt time.Time) error {
+	q := querierFrom(ctx, r.pool)
+	_, err := q.Exec(ctx,
+		`UPDATE sessions SET revoked_at = $2 WHERE user_id = $1 AND revoked_at IS NULL`,
+		userID.String(), revokedAt.UTC(),
+	)
+	return err
+}
+
 var _ auth.SessionRepository = (*SessionRepository)(nil)

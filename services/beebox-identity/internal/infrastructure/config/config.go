@@ -15,6 +15,11 @@ type LookupFunc func(key string) (string, bool)
 type Config struct {
 	Port        string
 	DatabaseURL string
+	SMTPHost    string
+	SMTPPort    int
+	SMTPUser    string
+	SMTPPass    string
+	SMTPFrom    string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -31,9 +36,28 @@ func Load(lookup LookupFunc) (Config, error) {
 		return Config{}, ErrMissingDatabaseURL
 	}
 
+	smtpHost, _ := lookup("SMTP_HOST")
+	smtpPortStr, _ := lookup("SMTP_PORT")
+	smtpPort := 0
+	if smtpPortStr != "" {
+		n, err := strconv.Atoi(smtpPortStr)
+		if err != nil || n < 1 || n > 65535 {
+			return Config{}, errors.New("SMTP_PORT must be a valid port number")
+		}
+		smtpPort = n
+	}
+	smtpUser, _ := lookup("SMTP_USERNAME")
+	smtpPass, _ := lookup("SMTP_PASSWORD")
+	smtpFrom, _ := lookup("SMTP_FROM")
+
 	return Config{
 		Port:        port,
 		DatabaseURL: databaseURL,
+		SMTPHost:    smtpHost,
+		SMTPPort:    smtpPort,
+		SMTPUser:    smtpUser,
+		SMTPPass:    smtpPass,
+		SMTPFrom:    smtpFrom,
 	}, nil
 }
 

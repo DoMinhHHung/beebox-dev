@@ -12,6 +12,7 @@ import (
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/application/auth"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/config"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/delivery"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/postgres"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/security"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/interfaces/http"
@@ -41,14 +42,23 @@ func main() {
 	hasher := security.NewBcryptPasswordHasher()
 	clock := postgres.SystemClock{}
 
+	mailer := delivery.NewSMTPMailer(delivery.SMTPConfig{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUser,
+		Password: cfg.SMTPPass,
+		From:     cfg.SMTPFrom,
+	})
+	sms := delivery.NewLoggingSMSSender()
+
 	signUp := auth.NewSignUpService(users, credentials, hasher, clock, tx)
 	signIn := auth.NewSignInService(users, credentials, sessions, hasher, clock)
 	revokeSession := auth.NewRevokeSessionService(sessions, clock)
 	authenticateSession := auth.NewAuthenticateSessionService(sessions, clock)
-	requestVerification := auth.NewRequestVerificationService(verifications, clock)
+	requestVerification := auth.NewRequestVerificationService(verifications, mailer, sms, clock)
 	verify := auth.NewVerifyService(verifications, clock)
-	requestPasswordReset := auth.NewRequestPasswordResetService(users, passwordResets, clock)
-	resetPassword := auth.NewResetPasswordService(passwordResets, credentials, hasher, clock, tx)
+	requestPasswordReset := auth.NewRequestPasswordResetService(users, passwordResets, mailer, clock)
+	resetPassword := auth.NewResetPasswordService(passwordResets, credentials, sessions, hasher, clock, tx)
 
 	router := interfaceshttp.NewRouter(interfaceshttp.Dependencies{
 		SignUp:               signUp,

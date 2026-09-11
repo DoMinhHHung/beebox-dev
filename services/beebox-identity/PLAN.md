@@ -194,7 +194,7 @@ Acceptance:
 - [ ] Add tests for refresh/reuse behavior if refresh tokens are introduced
 - [x] SignIn creates opaque session token and persists hashed session id
 - [x] SignOut accepts client opaque token and revokes by hash
-- [ ] Invalidate sessions after password reset (deferred; needs RevokeAllByUserID + ResetPassword wiring)
+- [x] Invalidate sessions after password reset (RevokeAllByUserID + ResetPassword wiring)
 - [ ] Authentication context / middleware for protected routes
 
 Decision rule:
@@ -232,6 +232,12 @@ Delivery rules:
 - Introduce a queue only when reliable asynchronous delivery becomes a concrete requirement.
 
 ## Phase 9 — Password recovery
+
+- [x] Password-reset delivery port
+- [x] Session invalidation after password reset
+- [x] Atomic credential update + reset consumption + session revoke
+- [x] HTTP no longer returns reset token
+
 
 - [x] Define recovery state
 - [x] Define recovery token lifecycle

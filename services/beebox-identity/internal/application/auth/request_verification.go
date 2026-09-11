@@ -30,20 +30,28 @@ type RequestVerificationInput struct {
 
 type RequestVerificationResult struct {
 	VerificationID string
-	Code           string
 	ExpiresAt      time.Time
 }
 
 type RequestVerificationService struct {
 	verifications VerificationRepository
+	email         VerificationMailer
+	sms           VerificationSMSSender
 	clock         Clock
 	ttl           time.Duration
 	randReader    io.Reader
 }
 
-func NewRequestVerificationService(verifications VerificationRepository, clock Clock) *RequestVerificationService {
+func NewRequestVerificationService(
+	verifications VerificationRepository,
+	email VerificationMailer,
+	sms VerificationSMSSender,
+	clock Clock,
+) *RequestVerificationService {
 	return &RequestVerificationService{
 		verifications: verifications,
+		email:         email,
+		sms:           sms,
 		clock:         clock,
 		ttl:           defaultVerificationTTL,
 		randReader:    rand.Reader,
@@ -86,9 +94,31 @@ func (s *RequestVerificationService) RequestVerification(ctx context.Context, in
 		return RequestVerificationResult{}, translateRepositoryError(err)
 	}
 
+	message := VerificationDeliveryMessage{
+		UserID: userID.String(),
+		Type:   string(vtype),
+		Target: target,
+		Code:   code,
+	}
+	switch vtype {
+	case verification.TypeEmail:
+		if s.email == nil {
+			return RequestVerificationResult{}, apperror.New(apperror.CodeDependencyFailure, "verification delivery failed")
+		}
+		if err := s.email.SendVerificationEmail(ctx, message); err != nil {
+			return RequestVerificationResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "verification delivery failed", err)
+		}
+	case verification.TypePhone:
+		if s.sms == nil {
+			return RequestVerificationResult{}, apperror.New(apperror.CodeDependencyFailure, "verification delivery failed")
+		}
+		if err := s.sms.SendVerificationSMS(ctx, message); err != nil {
+			return RequestVerificationResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "verification delivery failed", err)
+		}
+	}
+
 	return RequestVerificationResult{
 		VerificationID: v.ID(),
-		Code:           code,
 		ExpiresAt:      v.ExpiresAt(),
 	}, nil
 }

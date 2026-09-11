@@ -25,23 +25,28 @@ type RequestPasswordResetInput struct {
 }
 
 type RequestPasswordResetResult struct {
-	ResetID   string
-	Token     string
-	ExpiresAt time.Time
+	Status string
 }
 
 type RequestPasswordResetService struct {
 	users          UserRepository
 	passwordResets PasswordResetRepository
+	mailer         PasswordResetMailer
 	clock          Clock
 	ttl            time.Duration
 	randReader     io.Reader
 }
 
-func NewRequestPasswordResetService(users UserRepository, passwordResets PasswordResetRepository, clock Clock) *RequestPasswordResetService {
+func NewRequestPasswordResetService(
+	users UserRepository,
+	passwordResets PasswordResetRepository,
+	mailer PasswordResetMailer,
+	clock Clock,
+) *RequestPasswordResetService {
 	return &RequestPasswordResetService{
 		users:          users,
 		passwordResets: passwordResets,
+		mailer:         mailer,
 		clock:          clock,
 		ttl:            defaultPasswordResetTTL,
 		randReader:     rand.Reader,
@@ -58,7 +63,7 @@ func (s *RequestPasswordResetService) RequestPasswordReset(ctx context.Context, 
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrNotFound):
-		return RequestPasswordResetResult{}, apperror.New(apperror.CodeNotFound, "identity not found")
+		return RequestPasswordResetResult{Status: "accepted"}, nil
 	case err != nil:
 		return RequestPasswordResetResult{}, translateRepositoryError(err)
 	}
@@ -85,11 +90,19 @@ func (s *RequestPasswordResetService) RequestPasswordReset(ctx context.Context, 
 		return RequestPasswordResetResult{}, translateRepositoryError(err)
 	}
 
-	return RequestPasswordResetResult{
+	if s.mailer == nil {
+		return RequestPasswordResetResult{}, apperror.New(apperror.CodeDependencyFailure, "password reset delivery failed")
+	}
+	if err := s.mailer.SendPasswordReset(ctx, PasswordResetDeliveryMessage{
+		UserID:    foundUser.ID().String(),
 		ResetID:   reset.ID(),
 		Token:     token,
-		ExpiresAt: reset.ExpiresAt(),
-	}, nil
+		ExpiresAt: reset.ExpiresAt().UTC().Format(time.RFC3339),
+	}); err != nil {
+		return RequestPasswordResetResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "password reset delivery failed", err)
+	}
+
+	return RequestPasswordResetResult{Status: "accepted"}, nil
 }
 
 func generatePasswordResetToken(r io.Reader) (string, error) {

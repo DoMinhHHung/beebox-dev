@@ -23,6 +23,7 @@ type ResetPasswordResult struct {
 type ResetPasswordService struct {
 	passwordResets PasswordResetRepository
 	credentials    CredentialRepository
+	sessions       SessionRepository
 	hasher         PasswordHasher
 	clock          Clock
 	tx             Transactor
@@ -31,6 +32,7 @@ type ResetPasswordService struct {
 func NewResetPasswordService(
 	passwordResets PasswordResetRepository,
 	credentials CredentialRepository,
+	sessions SessionRepository,
 	hasher PasswordHasher,
 	clock Clock,
 	tx Transactor,
@@ -38,6 +40,7 @@ func NewResetPasswordService(
 	return &ResetPasswordService{
 		passwordResets: passwordResets,
 		credentials:    credentials,
+		sessions:       sessions,
 		hasher:         hasher,
 		clock:          clock,
 		tx:             tx,
@@ -105,7 +108,10 @@ func (s *ResetPasswordService) ResetPassword(ctx context.Context, input ResetPas
 		if err := s.credentials.Update(ctx, updatedCredential); err != nil {
 			return err
 		}
-		return s.passwordResets.MarkUsed(ctx, consumed)
+		if err := s.passwordResets.MarkUsed(ctx, consumed); err != nil {
+			return err
+		}
+		return s.sessions.RevokeAllByUserID(ctx, foundReset.UserID(), now)
 	}
 
 	if s.tx != nil {

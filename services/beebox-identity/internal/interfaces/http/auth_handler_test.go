@@ -22,6 +22,24 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/verification"
 )
 
+type httpFakeVerificationMailer struct{}
+
+func (httpFakeVerificationMailer) SendVerificationEmail(context.Context, auth.VerificationDeliveryMessage) error {
+	return nil
+}
+
+type httpFakeVerificationSMS struct{}
+
+func (httpFakeVerificationSMS) SendVerificationSMS(context.Context, auth.VerificationDeliveryMessage) error {
+	return nil
+}
+
+type httpFakePasswordResetMailer struct{}
+
+func (httpFakePasswordResetMailer) SendPasswordReset(context.Context, auth.PasswordResetDeliveryMessage) error {
+	return nil
+}
+
 type httpFakeClock struct {
 	now time.Time
 }
@@ -97,6 +115,10 @@ func (f *httpFakeSessionRepo) FindByID(context.Context, string) (session.Session
 
 func (f *httpFakeSessionRepo) Revoke(context.Context, session.Session) error {
 	return f.revokeErr
+}
+
+func (f *httpFakeSessionRepo) RevokeAllByUserID(context.Context, identity.Identifier, time.Time) error {
+	return nil
 }
 
 type httpFakeVerificationRepo struct {
@@ -290,7 +312,7 @@ func TestSignOutSuccess(t *testing.T) {
 
 func TestRequestVerificationSuccess(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	svc := auth.NewRequestVerificationService(&httpFakeVerificationRepo{}, &httpFakeClock{now: now})
+	svc := auth.NewRequestVerificationService(&httpFakeVerificationRepo{}, httpFakeVerificationMailer{}, httpFakeVerificationSMS{}, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{RequestVerification: svc})
 
 	rec := postJSON(t, mux, "/auth/verification/request", map[string]string{
@@ -305,7 +327,7 @@ func TestRequestVerificationSuccess(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body.VerificationID == "" || body.Code == "" {
+	if body.VerificationID == "" {
 		t.Fatalf("expected verification payload, got %+v", body)
 	}
 }
@@ -331,7 +353,7 @@ func TestRequestPasswordResetKnownUser(t *testing.T) {
 	u, _ := user.New(userID, now)
 	users := &httpFakeUserRepo{findUser: u}
 	resets := &httpFakePasswordResetRepo{}
-	svc := auth.NewRequestPasswordResetService(users, resets, &httpFakeClock{now: now})
+	svc := auth.NewRequestPasswordResetService(users, resets, httpFakePasswordResetMailer{}, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{RequestPasswordReset: svc})
 
 	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "user-1"})
@@ -342,14 +364,14 @@ func TestRequestPasswordResetKnownUser(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body.ResetID == "" || body.Token == "" {
-		t.Fatalf("expected reset payload, got %+v", body)
+	if body.Status != "accepted" {
+		t.Fatalf("expected accepted, got %+v", body)
 	}
 }
 
 func TestRequestPasswordResetEnumerationProtection(t *testing.T) {
 	users := &httpFakeUserRepo{findErr: auth.ErrNotFound}
-	svc := auth.NewRequestPasswordResetService(users, &httpFakePasswordResetRepo{}, &httpFakeClock{now: time.Now().UTC()})
+	svc := auth.NewRequestPasswordResetService(users, &httpFakePasswordResetRepo{}, httpFakePasswordResetMailer{}, &httpFakeClock{now: time.Now().UTC()})
 	mux := testRouter(t, Dependencies{RequestPasswordReset: svc})
 
 	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "missing"})
@@ -363,8 +385,8 @@ func TestRequestPasswordResetEnumerationProtection(t *testing.T) {
 	if body.Status != "accepted" {
 		t.Fatalf("expected accepted status, got %+v", body)
 	}
-	if body.Token != "" || body.ResetID != "" {
-		t.Fatal("must not leak reset material for unknown identity")
+	if body.Status != "accepted" {
+		t.Fatal("must return accepted for unknown identity")
 	}
 }
 
@@ -378,7 +400,7 @@ func TestResetPasswordSuccess(t *testing.T) {
 	resets := &httpFakePasswordResetRepo{findValue: reset}
 	credentials := &httpFakeCredentialRepo{findValue: cred}
 	hasher := &httpFakeHasher{hashValue: "new-hash"}
-	svc := auth.NewResetPasswordService(resets, credentials, hasher, &httpFakeClock{now: now}, nil)
+	svc := auth.NewResetPasswordService(resets, credentials, &httpFakeSessionRepo{}, hasher, &httpFakeClock{now: now}, nil)
 	mux := testRouter(t, Dependencies{ResetPassword: svc})
 
 	rec := postJSON(t, mux, "/auth/password-reset/reset", map[string]string{
