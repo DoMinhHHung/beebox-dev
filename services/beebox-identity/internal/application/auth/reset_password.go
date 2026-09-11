@@ -25,6 +25,7 @@ type ResetPasswordService struct {
 	credentials    CredentialRepository
 	hasher         PasswordHasher
 	clock          Clock
+	tx             Transactor
 }
 
 func NewResetPasswordService(
@@ -32,12 +33,14 @@ func NewResetPasswordService(
 	credentials CredentialRepository,
 	hasher PasswordHasher,
 	clock Clock,
+	tx Transactor,
 ) *ResetPasswordService {
 	return &ResetPasswordService{
 		passwordResets: passwordResets,
 		credentials:    credentials,
 		hasher:         hasher,
 		clock:          clock,
+		tx:             tx,
 	}
 }
 
@@ -93,17 +96,26 @@ func (s *ResetPasswordService) ResetPassword(ctx context.Context, input ResetPas
 		return ResetPasswordResult{}, apperror.Wrap(apperror.CodeInternal, "internal error", err)
 	}
 
-	if err := s.credentials.Update(ctx, updatedCredential); err != nil {
-		return ResetPasswordResult{}, translateRepositoryError(err)
-	}
-
 	consumed, err := foundReset.Consume(now)
 	if err != nil {
 		return ResetPasswordResult{}, translatePasswordResetDomainError(err)
 	}
 
-	if err := s.passwordResets.MarkUsed(ctx, consumed); err != nil {
-		return ResetPasswordResult{}, translateRepositoryError(err)
+	persist := func(ctx context.Context) error {
+		if err := s.credentials.Update(ctx, updatedCredential); err != nil {
+			return err
+		}
+		return s.passwordResets.MarkUsed(ctx, consumed)
+	}
+
+	if s.tx != nil {
+		if err := s.tx.WithinTransaction(ctx, persist); err != nil {
+			return ResetPasswordResult{}, translateRepositoryError(err)
+		}
+	} else {
+		if err := persist(ctx); err != nil {
+			return ResetPasswordResult{}, translateRepositoryError(err)
+		}
 	}
 
 	return ResetPasswordResult{UserID: foundReset.UserID()}, nil

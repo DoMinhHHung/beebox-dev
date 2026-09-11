@@ -113,7 +113,7 @@ func TestResetPasswordSuccess(t *testing.T) {
 	resets := &fakeResetPasswordResetRepository{findValue: pendingResetForTest(t, userID, token, now)}
 	credentials := &fakeResetCredentialRepository{findValue: credentialForResetTest(t, userID, now)}
 	hasher := &fakeResetPasswordHasher{hashValue: "new-stored-hash"}
-	service := NewResetPasswordService(resets, credentials, hasher, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, hasher, &fakeClock{now: now}, nil)
 
 	result, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID:     "reset-1",
@@ -150,6 +150,7 @@ func TestResetPasswordValidation(t *testing.T) {
 		&fakeResetCredentialRepository{},
 		&fakeResetPasswordHasher{},
 		&fakeClock{now: time.Now().UTC()},
+		nil,
 	)
 	cases := []ResetPasswordInput{
 		{ResetID: "", Token: "t", NewPassword: "p"},
@@ -170,6 +171,7 @@ func TestResetPasswordNotFound(t *testing.T) {
 		&fakeResetCredentialRepository{},
 		&fakeResetPasswordHasher{},
 		&fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		nil,
 	)
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "missing", Token: "token", NewPassword: "secret",
@@ -185,7 +187,7 @@ func TestResetPasswordIncorrectToken(t *testing.T) {
 	token := "correct-token-value-with-enough-length-for-hex-style-secret-01"
 	resets := &fakeResetPasswordResetRepository{findValue: pendingResetForTest(t, userID, token, now)}
 	credentials := &fakeResetCredentialRepository{findValue: credentialForResetTest(t, userID, now)}
-	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: "wrong-token", NewPassword: "secret",
@@ -205,7 +207,7 @@ func TestResetPasswordExpired(t *testing.T) {
 	token := "token-value"
 	reset, _ := passwordreset.New("reset-1", userID, hashPasswordResetToken(token), created, expires)
 	resets := &fakeResetPasswordResetRepository{findValue: reset}
-	service := NewResetPasswordService(resets, &fakeResetCredentialRepository{}, &fakeResetPasswordHasher{}, &fakeClock{now: expires})
+	service := NewResetPasswordService(resets, &fakeResetCredentialRepository{}, &fakeResetPasswordHasher{}, &fakeClock{now: expires}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -225,7 +227,7 @@ func TestResetPasswordAlreadyUsed(t *testing.T) {
 		t.Fatalf("consume: %v", err)
 	}
 	resets := &fakeResetPasswordResetRepository{findValue: used}
-	service := NewResetPasswordService(resets, &fakeResetCredentialRepository{}, &fakeResetPasswordHasher{}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, &fakeResetCredentialRepository{}, &fakeResetPasswordHasher{}, &fakeClock{now: now}, nil)
 
 	_, err = service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -241,7 +243,7 @@ func TestResetPasswordCredentialNotFound(t *testing.T) {
 	token := "token-value"
 	resets := &fakeResetPasswordResetRepository{findValue: pendingResetForTest(t, userID, token, now)}
 	credentials := &fakeResetCredentialRepository{findErr: ErrNotFound}
-	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -261,7 +263,7 @@ func TestResetPasswordHashFailureDoesNotConsume(t *testing.T) {
 	resets := &fakeResetPasswordResetRepository{findValue: pendingResetForTest(t, userID, token, now)}
 	credentials := &fakeResetCredentialRepository{findValue: credentialForResetTest(t, userID, now)}
 	hasher := &fakeResetPasswordHasher{hashErr: errors.New("hasher down")}
-	service := NewResetPasswordService(resets, credentials, hasher, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, hasher, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -283,7 +285,7 @@ func TestResetPasswordUpdateFailureDoesNotConsume(t *testing.T) {
 		findValue: credentialForResetTest(t, userID, now),
 		updateErr: errors.New("write fail"),
 	}
-	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -305,7 +307,7 @@ func TestResetPasswordMarkUsedFailure(t *testing.T) {
 		markUsedErr: errors.New("mark fail"),
 	}
 	credentials := &fakeResetCredentialRepository{findValue: credentialForResetTest(t, userID, now)}
-	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",
@@ -324,6 +326,7 @@ func TestResetPasswordRepositoryFindFailure(t *testing.T) {
 		&fakeResetCredentialRepository{},
 		&fakeResetPasswordHasher{},
 		&fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		nil,
 	)
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: "token", NewPassword: "secret",
@@ -339,7 +342,7 @@ func TestResetPasswordCredentialLookupFailure(t *testing.T) {
 	token := "token-value"
 	resets := &fakeResetPasswordResetRepository{findValue: pendingResetForTest(t, userID, token, now)}
 	credentials := &fakeResetCredentialRepository{findErr: errors.New("db")}
-	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now})
+	service := NewResetPasswordService(resets, credentials, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
 
 	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
 		ResetID: "reset-1", Token: token, NewPassword: "secret",

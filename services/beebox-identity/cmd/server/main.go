@@ -10,7 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/application/auth"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/config"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/postgres"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/infrastructure/security"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/interfaces/http"
 )
 
@@ -20,15 +23,48 @@ func main() {
 		log.Fatalf("beebox-identity: invalid configuration: %v", err)
 	}
 
-	router := interfaceshttp.NewRouter(interfaceshttp.Dependencies{})
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("beebox-identity: postgres connection failed: %v", err)
+	}
+	defer pool.Close()
+
+	users := postgres.NewUserRepository(pool)
+	credentials := postgres.NewCredentialRepository(pool)
+	sessions := postgres.NewSessionRepository(pool)
+	verifications := postgres.NewVerificationRepository(pool)
+	passwordResets := postgres.NewPasswordResetRepository(pool)
+	tx := postgres.NewTransactor(pool)
+	hasher := security.NewBcryptPasswordHasher()
+	clock := postgres.SystemClock{}
+
+	signUp := auth.NewSignUpService(users, credentials, hasher, clock, tx)
+	signIn := auth.NewSignInService(users, credentials, sessions, hasher, clock)
+	revokeSession := auth.NewRevokeSessionService(sessions, clock)
+	authenticateSession := auth.NewAuthenticateSessionService(sessions, clock)
+	requestVerification := auth.NewRequestVerificationService(verifications, clock)
+	verify := auth.NewVerifyService(verifications, clock)
+	requestPasswordReset := auth.NewRequestPasswordResetService(users, passwordResets, clock)
+	resetPassword := auth.NewResetPasswordService(passwordResets, credentials, hasher, clock, tx)
+
+	router := interfaceshttp.NewRouter(interfaceshttp.Dependencies{
+		SignUp:               signUp,
+		SignIn:               signIn,
+		RevokeSession:        revokeSession,
+		AuthenticateSession:  authenticateSession,
+		RequestVerification:  requestVerification,
+		Verify:               verify,
+		RequestPasswordReset: requestPasswordReset,
+		ResetPassword:        resetPassword,
+	})
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: router,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	serveErr := make(chan error, 1)
 	go func() {

@@ -108,13 +108,16 @@ Acceptance:
 
 ## Phase 4 — PostgreSQL infrastructure
 
-- [ ] Add PostgreSQL connection configuration
-- [ ] Create identity-owned migrations
-- [ ] Implement user repository
-- [ ] Implement credential repository
-- [ ] Implement session repository
-- [ ] Add transaction handling where a use case requires atomic writes
-- [ ] Add integration tests where repository behavior cannot be validated with unit tests
+- [x] Add PostgreSQL connection configuration
+- [x] Create identity-owned migrations
+- [x] Implement user repository
+- [x] Implement credential repository
+- [x] Implement session repository
+- [x] Implement verification repository
+- [x] Implement password-reset repository
+- [x] Add transaction handling where a use case requires atomic writes
+- [x] Add integration tests where repository behavior cannot be validated with unit tests
+- [x] Wire PostgreSQL repositories into cmd/server
 
 Acceptance:
 
@@ -122,10 +125,16 @@ Acceptance:
 - No other service accesses identity tables
 - Database errors do not leak through the API
 
+Transaction notes:
+
+- SignUp persists user + credential inside `Transactor.WithinTransaction`
+- ResetPassword updates credential + marks reset used inside the same transaction
+- Repositories participate via context-scoped `pgx.Tx` (no generic UnitOfWork framework)
+
 ## Phase 5 — Password security
 
-- [ ] Select a maintained password hashing implementation
-- [ ] Implement password hash/verify adapter
+- [x] Select a maintained password hashing implementation
+- [x] Implement password hash/verify adapter
 - [ ] Enforce password policy at the appropriate application/domain boundary
 - [ ] Ensure plaintext passwords never enter logs
 - [ ] Test valid password verification
@@ -332,7 +341,7 @@ Acceptance:
 - [x] Phase 1 — Bootstrap
 - [x] Phase 2 — Domain foundation
 - [x] Phase 3 — Application boundaries
-- [ ] Phase 4 — PostgreSQL infrastructure
+- [x] Phase 4 — PostgreSQL infrastructure
 - [ ] Phase 5 — Password security
 - [x] Phase 6 — HTTP API
 - [ ] Phase 7 — Session/token lifecycle

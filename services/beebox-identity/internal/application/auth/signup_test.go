@@ -89,7 +89,7 @@ func TestSignUpSuccess(t *testing.T) {
 	users := &fakeUserRepository{findErr: ErrNotFound}
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	result, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "plain-secret"})
 	if err != nil {
@@ -117,7 +117,7 @@ func TestSignUpRejectsInvalidInput(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	result, err := service.SignUp(context.Background(), SignUpInput{Identifier: " ", Password: "secret"})
 	if result != (SignUpResult{}) {
@@ -136,7 +136,7 @@ func TestSignUpRejectsDuplicateIdentity(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeConflict) {
@@ -152,7 +152,7 @@ func TestSignUpContinuesWhenIdentityIsNotFound(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if err != nil {
@@ -165,7 +165,7 @@ func TestSignUpMapsLookupFailure(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
@@ -182,7 +182,7 @@ func TestSignUpMapsHashFailure(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashErr: hashErr}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
@@ -199,7 +199,7 @@ func TestSignUpMapsUserRepositoryFailure(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
@@ -216,7 +216,7 @@ func TestSignUpMapsCredentialRepositoryFailure(t *testing.T) {
 	credentials := &fakeCredentialRepository{createErr: repositoryErr}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{now: time.Now()}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
@@ -232,7 +232,7 @@ func TestSignUpMapsDomainFailure(t *testing.T) {
 	credentials := &fakeCredentialRepository{}
 	hasher := &fakePasswordHasher{hashValue: "stored-hash"}
 	clock := &fakeClock{}
-	service := NewSignUpService(users, credentials, hasher, clock)
+	service := NewSignUpService(users, credentials, hasher, clock, nil)
 
 	_, err := service.SignUp(context.Background(), SignUpInput{Identifier: "user-1", Password: "secret"})
 	if !apperror.IsCode(err, apperror.CodeValidation) {

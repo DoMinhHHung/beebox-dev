@@ -5,12 +5,16 @@ import (
 	"strconv"
 )
 
-var ErrInvalidPort = errors.New("PORT must be a valid port number")
+var (
+	ErrInvalidPort        = errors.New("PORT must be a valid port number")
+	ErrMissingDatabaseURL = errors.New("DATABASE_URL is required")
+)
 
 type LookupFunc func(key string) (string, bool)
 
 type Config struct {
-	Port string
+	Port        string
+	DatabaseURL string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -18,13 +22,18 @@ func Load(lookup LookupFunc) (Config, error) {
 	if !ok || port == "" {
 		port = "8081"
 	}
-
 	if err := validatePort(port); err != nil {
 		return Config{}, err
 	}
 
+	databaseURL, ok := lookup("DATABASE_URL")
+	if !ok || databaseURL == "" {
+		return Config{}, ErrMissingDatabaseURL
+	}
+
 	return Config{
-		Port: port,
+		Port:        port,
+		DatabaseURL: databaseURL,
 	}, nil
 }
 

@@ -26,14 +26,16 @@ type SignUpService struct {
 	credentials CredentialRepository
 	hasher      PasswordHasher
 	clock       Clock
+	tx          Transactor
 }
 
-func NewSignUpService(users UserRepository, credentials CredentialRepository, hasher PasswordHasher, clock Clock) *SignUpService {
+func NewSignUpService(users UserRepository, credentials CredentialRepository, hasher PasswordHasher, clock Clock, tx Transactor) *SignUpService {
 	return &SignUpService{
 		users:       users,
 		credentials: credentials,
 		hasher:      hasher,
 		clock:       clock,
+		tx:          tx,
 	}
 }
 
@@ -71,11 +73,21 @@ func (s *SignUpService) SignUp(ctx context.Context, input SignUpInput) (SignUpRe
 		return SignUpResult{}, translateDomainError(err)
 	}
 
-	if err := s.users.Create(ctx, newUser); err != nil {
-		return SignUpResult{}, translateRepositoryError(err)
+	persist := func(ctx context.Context) error {
+		if err := s.users.Create(ctx, newUser); err != nil {
+			return err
+		}
+		return s.credentials.Create(ctx, newCredential)
 	}
-	if err := s.credentials.Create(ctx, newCredential); err != nil {
-		return SignUpResult{}, translateRepositoryError(err)
+
+	if s.tx != nil {
+		if err := s.tx.WithinTransaction(ctx, persist); err != nil {
+			return SignUpResult{}, translateRepositoryError(err)
+		}
+	} else {
+		if err := persist(ctx); err != nil {
+			return SignUpResult{}, translateRepositoryError(err)
+		}
 	}
 
 	return SignUpResult{UserID: newUser.ID()}, nil

@@ -14,10 +14,16 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name: "default port",
-			lookup: func(string) (string, bool) {
+			lookup: func(key string) (string, bool) {
+				if key == "DATABASE_URL" {
+					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				}
 				return "", false
 			},
-			want: Config{Port: "8081"},
+			want: Config{
+				Port:        "8081",
+				DatabaseURL: "postgres://identity:identity@localhost:5432/identity?sslmode=disable",
+			},
 		},
 		{
 			name: "configured port",
@@ -25,9 +31,15 @@ func TestLoad(t *testing.T) {
 				if key == "PORT" {
 					return "9090", true
 				}
+				if key == "DATABASE_URL" {
+					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				}
 				return "", false
 			},
-			want: Config{Port: "9090"},
+			want: Config{
+				Port:        "9090",
+				DatabaseURL: "postgres://identity:identity@localhost:5432/identity?sslmode=disable",
+			},
 		},
 		{
 			name: "invalid port",
@@ -35,9 +47,19 @@ func TestLoad(t *testing.T) {
 				if key == "PORT" {
 					return "65536", true
 				}
+				if key == "DATABASE_URL" {
+					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				}
 				return "", false
 			},
 			wantErr: ErrInvalidPort,
+		},
+		{
+			name: "missing database url",
+			lookup: func(string) (string, bool) {
+				return "", false
+			},
+			wantErr: ErrMissingDatabaseURL,
 		},
 	}
 
@@ -47,7 +69,7 @@ func TestLoad(t *testing.T) {
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("expected error %v, got %v", test.wantErr, err)
 			}
-			if got != test.want {
+			if test.wantErr == nil && got != test.want {
 				t.Fatalf("expected config %#v, got %#v", test.want, got)
 			}
 		})
