@@ -54,6 +54,7 @@ func newRouter(
 		mux.HandleFunc("GET /v1/projects/{id}/configuration/versions/{version}", requireAuthentication(authenticator, configurationHandler.version))
 		mux.HandleFunc("PATCH /v1/projects/{id}/configuration/versions/{version}", requireAuthentication(authenticator, configurationHandler.transition))
 		mux.HandleFunc("POST /v1/projects/{id}/configuration/versions/{version}/rollout", requireAuthentication(authenticator, configurationHandler.rollout))
+		mux.HandleFunc("POST /v1/projects/{id}/configuration/versions/{version}/apply", requireAuthentication(authenticator, configurationHandler.apply))
 	}
 
 	if enablements != nil {

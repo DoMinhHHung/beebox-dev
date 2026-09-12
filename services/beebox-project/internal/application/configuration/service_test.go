@@ -2,6 +2,7 @@ package configuration_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/apperror"
@@ -90,5 +91,207 @@ func TestAccessAndNotFound(t *testing.T) {
 	_, err = svc.Current(context.Background(), "project-1", "organization-2")
 	if apperror.CodeOf(err) != apperror.CodeForbidden {
 		t.Fatalf("expected forbidden, got %v", apperror.CodeOf(err))
+	}
+}
+
+func publishVersion(t *testing.T, svc *applicationconfiguration.Service, projectID, organizationID string) domainconfiguration.Version {
+	t.Helper()
+	ctx := context.Background()
+	version, err := svc.CreateOrUpdate(ctx, projectID, organizationID, validConfiguration(t, projectID))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	version, err = svc.Transition(ctx, projectID, organizationID, version.Number, domainconfiguration.StatusValidated)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	version, err = svc.Transition(ctx, projectID, organizationID, version.Number, domainconfiguration.StatusPublished)
+	if err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	return version
+}
+
+func TestApply_PublishedSetsStatusAndAppliedVersion(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+
+	applied, state, err := svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if applied.Status != domainconfiguration.StatusApplied {
+		t.Fatalf("expected APPLIED status, got %s", applied.Status)
+	}
+	if state.AppliedVersion != version.Number {
+		t.Fatalf("expected applied_version %d, got %d", version.Number, state.AppliedVersion)
+	}
+
+	loaded, err := svc.Version(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("reload version: %v", err)
+	}
+	if loaded.Status != domainconfiguration.StatusApplied {
+		t.Fatalf("persisted status want APPLIED, got %s", loaded.Status)
+	}
+}
+
+func TestApply_IdempotentWhenAlreadyApplied(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+
+	first, firstState, err := svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+	second, secondState, err := svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+	if second.Status != domainconfiguration.StatusApplied {
+		t.Fatalf("expected APPLIED, got %s", second.Status)
+	}
+	if secondState.AppliedVersion != firstState.AppliedVersion || secondState.AppliedVersion != first.Number {
+		t.Fatalf("unexpected rollout after idempotent apply: first=%#v second=%#v", firstState, secondState)
+	}
+}
+
+func TestApply_RejectsDraftAndValidated(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	draft, err := svc.CreateOrUpdate(ctx, "project-1", "organization-1", validConfiguration(t, "project-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = svc.Apply(ctx, "project-1", "organization-1", draft.Number)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("draft apply expected conflict, got %v", err)
+	}
+
+	validated, err := svc.Transition(ctx, "project-1", "organization-1", draft.Number, domainconfiguration.StatusValidated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = svc.Apply(ctx, "project-1", "organization-1", validated.Number)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("validated apply expected conflict, got %v", err)
+	}
+}
+
+func TestApply_RejectsMissingVersionAndWrongOrg(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	_, _, err := svc.Apply(ctx, "project-1", "organization-1", 99)
+	if apperror.CodeOf(err) != apperror.CodeNotFound {
+		t.Fatalf("missing version expected not found, got %v", err)
+	}
+	publishVersion(t, svc, "project-1", "organization-1")
+	_, _, err = svc.Apply(ctx, "project-1", "organization-2", 1)
+	if apperror.CodeOf(err) != apperror.CodeForbidden {
+		t.Fatalf("wrong org expected forbidden, got %v", err)
+	}
+}
+
+type applyScriptRepo struct {
+	inner       applicationconfiguration.Repository
+	failOnApply bool
+	applyCalls  int
+	lastVersion domainconfiguration.Version
+	lastRollout domainconfiguration.RolloutState
+}
+
+func (r *applyScriptRepo) CreateVersion(ctx context.Context, v domainconfiguration.Version) error {
+	return r.inner.CreateVersion(ctx, v)
+}
+func (r *applyScriptRepo) GetVersion(ctx context.Context, projectID string, number int) (domainconfiguration.Version, error) {
+	return r.inner.GetVersion(ctx, projectID, number)
+}
+func (r *applyScriptRepo) GetLatestVersion(ctx context.Context, projectID string) (domainconfiguration.Version, error) {
+	return r.inner.GetLatestVersion(ctx, projectID)
+}
+func (r *applyScriptRepo) UpdateVersion(ctx context.Context, v domainconfiguration.Version) error {
+	return r.inner.UpdateVersion(ctx, v)
+}
+func (r *applyScriptRepo) GetRollout(ctx context.Context, projectID string) (domainconfiguration.RolloutState, error) {
+	return r.inner.GetRollout(ctx, projectID)
+}
+func (r *applyScriptRepo) SaveRollout(ctx context.Context, state domainconfiguration.RolloutState) error {
+	return r.inner.SaveRollout(ctx, state)
+}
+func (r *applyScriptRepo) Apply(ctx context.Context, version domainconfiguration.Version, state domainconfiguration.RolloutState) error {
+	r.applyCalls++
+	r.lastVersion = version
+	r.lastRollout = state
+	if r.failOnApply {
+		return errors.New("forced apply failure")
+	}
+	return r.inner.Apply(ctx, version, state)
+}
+
+func TestApply_RepositoryFailureDoesNotLeavePartialSuccessWhenRepoIsAtomic(t *testing.T) {
+	projectsRepo := memory.NewProjectRepository()
+	projects := project.NewService(projectsRepo)
+	if _, err := projects.Create(context.Background(), "project-1", "organization-1"); err != nil {
+		t.Fatal(err)
+	}
+	cat, err := catalog.New(
+		[]catalog.ModuleDefinition{{ID: "auth", Version: "v1"}},
+		[]catalog.CapabilityDefinition{{ModuleID: "auth", ID: "login", Version: "v1"}},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner := memory.NewConfigurationRepository()
+	scripted := &applyScriptRepo{inner: inner, failOnApply: true}
+	svc := applicationconfiguration.NewService(scripted, projects, cat)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+
+	_, _, err = svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if apperror.CodeOf(err) != apperror.CodeDependencyFailure {
+		t.Fatalf("expected dependency failure, got %v", err)
+	}
+	if scripted.applyCalls != 1 {
+		t.Fatalf("expected one apply call, got %d", scripted.applyCalls)
+	}
+
+	loaded, err := inner.GetVersion(ctx, "project-1", version.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Status != domainconfiguration.StatusPublished {
+		t.Fatalf("atomic failure must leave version unpublished, got %s", loaded.Status)
+	}
+	_, err = inner.GetRollout(ctx, "project-1")
+	if !errors.Is(err, applicationconfiguration.ErrRolloutNotFound) {
+		t.Fatalf("expected no rollout after failed apply, got %#v %v", err, err)
+	}
+}
+
+func TestApply_RepairsAppliedVersionWhenStatusAlreadyApplied(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+	// Simulate legacy path: transition to APPLIED without setting rollout.applied_version
+	legacy, err := svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusApplied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Status != domainconfiguration.StatusApplied {
+		t.Fatal("expected legacy APPLIED status")
+	}
+
+	applied, state, err := svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("repair apply: %v", err)
+	}
+	if applied.Status != domainconfiguration.StatusApplied {
+		t.Fatalf("status %s", applied.Status)
+	}
+	if state.AppliedVersion != version.Number {
+		t.Fatalf("applied_version %d", state.AppliedVersion)
 	}
 }

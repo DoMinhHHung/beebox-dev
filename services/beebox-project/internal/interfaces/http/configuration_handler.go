@@ -150,6 +150,25 @@ func (h *configurationHandler) rollout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rolloutResponse{ProjectID: state.ProjectID, DesiredVersion: state.DesiredVersion, AppliedVersion: state.AppliedVersion})
 }
 
+func (h *configurationHandler) apply(w http.ResponseWriter, r *http.Request) {
+	versionNumber, err := parseConfigurationVersion(r.PathValue("version"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	version, _, err := h.service.Apply(r.Context(), r.PathValue("id"), principal.OrganizationID, versionNumber)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toConfigurationResponse(version))
+}
+
 func (h *configurationHandler) authorizedVersion(r *http.Request) (domainconfiguration.Version, error) {
 	principal, ok := principalFromContext(r.Context())
 	if !ok {

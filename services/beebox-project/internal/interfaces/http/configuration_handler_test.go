@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -92,4 +93,69 @@ func mustTestCatalog() catalog.Catalog {
 		panic(err)
 	}
 	return cat
+}
+
+func TestConfiguration_ApplyPublishedVersion(t *testing.T) {
+	repo := memory.NewProjectRepository()
+	projects := project.NewService(repo)
+	if _, err := projects.Create(context.Background(), "project-1", "organization-1"); err != nil {
+		t.Fatal(err)
+	}
+	router := newConfigurationRouter(repo, "organization-1")
+	body := map[string]any{"module_id": "auth", "module_version": "v1", "capability_id": "login", "capability_version": "v1"}
+	created := doJSON(t, router, http.MethodPut, "/v1/projects/project-1/configuration", body)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", created.Code, created.Body.String())
+	}
+	for _, status := range []string{"VALIDATED", "PUBLISHED"} {
+		rec := doJSON(t, router, http.MethodPatch, "/v1/projects/project-1/configuration/versions/1", map[string]string{"status": status})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("transition %s: %d %s", status, rec.Code, rec.Body.String())
+		}
+	}
+	applied := doJSON(t, router, http.MethodPost, "/v1/projects/project-1/configuration/versions/1/apply", nil)
+	if applied.Code != http.StatusOK {
+		t.Fatalf("apply: %d %s", applied.Code, applied.Body.String())
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(applied.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["status"] != "APPLIED" {
+		t.Fatalf("expected APPLIED, got %#v", payload["status"])
+	}
+
+	again := doJSON(t, router, http.MethodPost, "/v1/projects/project-1/configuration/versions/1/apply", nil)
+	if again.Code != http.StatusOK {
+		t.Fatalf("idempotent apply: %d %s", again.Code, again.Body.String())
+	}
+}
+
+func TestConfiguration_ApplyRejectsUnauthorizedAndUnpublished(t *testing.T) {
+	repo := memory.NewProjectRepository()
+	projects := project.NewService(repo)
+	if _, err := projects.Create(context.Background(), "project-1", "organization-1"); err != nil {
+		t.Fatal(err)
+	}
+	owner := newConfigurationRouter(repo, "organization-1")
+	body := map[string]any{"module_id": "auth", "module_version": "v1", "capability_id": "login", "capability_version": "v1"}
+	if rec := doJSON(t, owner, http.MethodPut, "/v1/projects/project-1/configuration", body); rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d", rec.Code)
+	}
+
+	draftApply := doJSON(t, owner, http.MethodPost, "/v1/projects/project-1/configuration/versions/1/apply", nil)
+	if draftApply.Code != http.StatusConflict {
+		t.Fatalf("draft apply expected 409, got %d %s", draftApply.Code, draftApply.Body.String())
+	}
+
+	other := newConfigurationRouter(repo, "organization-2")
+	forbidden := doJSON(t, other, http.MethodPost, "/v1/projects/project-1/configuration/versions/1/apply", nil)
+	if forbidden.Code != http.StatusForbidden && forbidden.Code != http.StatusNotFound {
+		t.Fatalf("expected 403/404 for wrong org, got %d %s", forbidden.Code, forbidden.Body.String())
+	}
+
+	missing := doJSON(t, owner, http.MethodPost, "/v1/projects/project-1/configuration/versions/99/apply", nil)
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("missing version expected 404, got %d %s", missing.Code, missing.Body.String())
+	}
 }

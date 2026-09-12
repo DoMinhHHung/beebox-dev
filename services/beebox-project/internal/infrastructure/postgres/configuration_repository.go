@@ -117,6 +117,37 @@ func (r *ConfigurationRepository) SaveRollout(ctx context.Context, state domainc
 	return err
 }
 
+func (r *ConfigurationRepository) Apply(ctx context.Context, version domainconfiguration.Version, state domainconfiguration.RolloutState) error {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const updateVersion = `UPDATE project_configuration_versions SET status = $3 WHERE project_id = $1 AND version = $2`
+	tag, err := tx.Exec(ctx, updateVersion, version.ProjectID, version.Number, string(version.Status))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return applicationconfiguration.ErrVersionNotFound
+	}
+
+	const upsertRollout = `
+		INSERT INTO project_configuration_rollouts (project_id, desired_version, applied_version)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (project_id) DO UPDATE SET
+			desired_version = EXCLUDED.desired_version,
+			applied_version = EXCLUDED.applied_version,
+			updated_at = now()
+	`
+	if _, err := tx.Exec(ctx, upsertRollout, state.ProjectID, state.DesiredVersion, state.AppliedVersion); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 func buildVersion(projectID string, number int, moduleID, moduleVersion, capabilityID, capabilityVersion string, fields []byte, status string) (domainconfiguration.Version, error) {
 	config, err := domainconfiguration.New(projectID, moduleID, moduleVersion, capabilityID, capabilityVersion)
 	if err != nil {
