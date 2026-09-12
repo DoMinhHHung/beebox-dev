@@ -15,6 +15,7 @@ type LookupFunc func(key string) (string, bool)
 type Config struct {
 	DatabaseURL string
 	Port        string
+	IdentityURL string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -31,10 +32,15 @@ func Load(lookup LookupFunc) (Config, error) {
 	if err := validatePort(port); err != nil {
 		return Config{}, err
 	}
+	identityURL, ok := lookup("IDENTITY_URL")
+	if !ok || identityURL == "" {
+		identityURL = "http://localhost:8081"
+	}
 
 	return Config{
 		DatabaseURL: databaseURL,
 		Port:        port,
+		IdentityURL: identityURL,
 	}, nil
 }
 

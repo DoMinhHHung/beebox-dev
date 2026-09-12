@@ -11,6 +11,7 @@ type authHandler struct {
 	signUp               *auth.SignUpService
 	signIn               *auth.SignInService
 	revokeSession        *auth.RevokeSessionService
+	authenticateSession  *auth.AuthenticateSessionService
 	requestVerification  *auth.RequestVerificationService
 	verify               *auth.VerifyService
 	requestPasswordReset *auth.RequestPasswordResetService
@@ -94,6 +95,32 @@ func (h *authHandler) handleSignOut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+type sessionResponse struct {
+	UserID         string `json:"user_id"`
+	SessionID      string `json:"session_id"`
+	OrganizationID string `json:"organization_id"`
+}
+
+func (h *authHandler) handleSession(w http.ResponseWriter, r *http.Request) {
+	token, err := extractBearerToken(r.Header.Get("Authorization"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	result, err := h.authenticateSession.AuthenticateSession(r.Context(), auth.AuthenticateSessionInput{Token: token})
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, sessionResponse{
+		UserID:         result.UserID.String(),
+		SessionID:      result.SessionID,
+		OrganizationID: result.UserID.String(),
+	})
 }
 
 type requestVerificationRequest struct {

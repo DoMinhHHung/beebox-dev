@@ -8,6 +8,7 @@ import (
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/config"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/identity"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/postgres"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/interfaces/http"
 )
@@ -28,7 +29,8 @@ func main() {
 
 	repo := postgres.NewProjectRepository(pool)
 	service := project.NewService(repo)
-	router := interfaceshttp.NewRouter(service)
+	identityClient := identity.NewClient(cfg.IdentityURL, nil)
+	router := interfaceshttp.NewRouter(service, identityClient)
 
 	addr := ":" + cfg.Port
 	log.Printf("beebox-project: listening on %s", addr)

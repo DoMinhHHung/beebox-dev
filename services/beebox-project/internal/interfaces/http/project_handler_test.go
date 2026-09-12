@@ -8,12 +8,21 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/auth"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/memory"
 )
 
+type testAuthenticator struct {
+	principal auth.Principal
+}
+
+func (a testAuthenticator) Authenticate(context.Context, string) (auth.Principal, error) {
+	return a.principal, nil
+}
+
 func newTestRouter() *http.ServeMux {
-	return NewRouter(project.NewService(memory.NewProjectRepository()))
+	return NewRouter(project.NewService(memory.NewProjectRepository()), testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
 }
 
 func doJSON(t *testing.T, router *http.ServeMux, method string, path string, body any) *httptest.ResponseRecorder {
@@ -31,6 +40,7 @@ func doJSON(t *testing.T, router *http.ServeMux, method string, path string, bod
 	}
 
 	req := httptest.NewRequestWithContext(context.Background(), method, path, reader)
+	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
@@ -49,6 +59,7 @@ func TestCreateProject_RejectsInvalidBody(t *testing.T) {
 	router := newTestRouter()
 
 	req := httptest.NewRequestWithContext(context.Background(), "POST", "/v1/projects", bytes.NewReader([]byte("{not json")))
+	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
