@@ -7,32 +7,35 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/apperror"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/auth"
 	applicationconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/configuration"
+	applicationcredential "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/credential"
 	applicationenablement "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/enablement"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 )
 
 func NewRouter(projects *project.Service, internalToken string, authenticators ...auth.Authenticator) *http.ServeMux {
-	return newRouter(projects, nil, nil, internalToken, authenticators...)
+	return newRouter(projects, nil, nil, nil, internalToken, authenticators...)
 }
 
 func NewRouterWithConfiguration(projects *project.Service, configurations *applicationconfiguration.Service, authenticator auth.Authenticator, internalToken string) *http.ServeMux {
-	return newRouter(projects, configurations, nil, internalToken, authenticator)
+	return newRouter(projects, configurations, nil, nil, internalToken, authenticator)
 }
 
 func NewRouterWithServices(
 	projects *project.Service,
 	configurations *applicationconfiguration.Service,
 	enablements *applicationenablement.Service,
+	credentials *applicationcredential.Service,
 	authenticator auth.Authenticator,
 	internalToken string,
 ) *http.ServeMux {
-	return newRouter(projects, configurations, enablements, internalToken, authenticator)
+	return newRouter(projects, configurations, enablements, credentials, internalToken, authenticator)
 }
 
 func newRouter(
 	projects *project.Service,
 	configurations *applicationconfiguration.Service,
 	enablements *applicationenablement.Service,
+	credentials *applicationcredential.Service,
 	internalToken string,
 	authenticators ...auth.Authenticator,
 ) *http.ServeMux {
@@ -69,6 +72,11 @@ func newRouter(
 		mux.HandleFunc("PUT /v1/projects/{id}/capabilities/{module}/{capability}", requireAuthentication(authenticator, handler.enable))
 		mux.HandleFunc("PATCH /v1/projects/{id}/capabilities/{module}/{capability}", requireAuthentication(authenticator, handler.updateFields))
 		mux.HandleFunc("DELETE /v1/projects/{id}/capabilities/{module}/{capability}", requireAuthentication(authenticator, handler.disable))
+	}
+	if credentials != nil {
+		handler := &credentialHandler{service: credentials}
+		mux.HandleFunc("POST /v1/projects/{id}/credentials/public", requireAuthentication(authenticator, handler.issuePublic))
+		mux.HandleFunc("POST /internal/v1/projects/{id}/credentials/verify", requireInternalToken(internalToken, handler.verifyPublic))
 	}
 	return mux
 }

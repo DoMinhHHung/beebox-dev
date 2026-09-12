@@ -7,6 +7,7 @@ import (
 	"os"
 
 	applicationconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/configuration"
+	applicationcredential "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/credential"
 	applicationenablement "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/enablement"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/catalogseed"
@@ -40,9 +41,11 @@ func main() {
 	configurationService := applicationconfiguration.NewService(configurationRepo, service, beeCatalog)
 	enablementRepo := postgres.NewEnablementRepository(pool)
 	enablementService := applicationenablement.NewService(enablementRepo, service, beeCatalog)
+	credentialRepo := postgres.NewCredentialRepository(pool)
+	credentialService := applicationcredential.NewService(credentialRepo, service)
 
 	identityClient := identity.NewClient(cfg.IdentityURL, nil)
-	router := interfaceshttp.NewRouterWithServices(service, configurationService, enablementService, identityClient, cfg.InternalToken)
+	router := interfaceshttp.NewRouterWithServices(service, configurationService, enablementService, credentialService, identityClient, cfg.InternalToken)
 
 	addr := ":" + cfg.Port
 	log.Printf("beebox-project: listening on %s", addr)
