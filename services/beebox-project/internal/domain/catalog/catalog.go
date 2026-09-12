@@ -294,3 +294,31 @@ func (c Catalog) ValidateDataFieldTransition(
 
 	return nil
 }
+
+func (c Catalog) Modules() []ModuleDefinition {
+	out := make([]ModuleDefinition, 0, len(c.modules))
+	for _, definition := range c.modules {
+		out = append(out, definition)
+	}
+	return out
+}
+
+func (c Catalog) Capabilities(moduleID string) []CapabilityDefinition {
+	out := make([]CapabilityDefinition, 0)
+	for _, definition := range c.capabilities {
+		if definition.ModuleID == moduleID {
+			out = append(out, definition)
+		}
+	}
+	return out
+}
+
+func (c Catalog) DataFields(moduleID string, capabilityID string, capabilityVersion string) []DataFieldDefinition {
+	out := make([]DataFieldDefinition, 0)
+	for _, definition := range c.dataFields {
+		if definition.ModuleID == moduleID && definition.CapabilityID == capabilityID && definition.CapabilityVersion == capabilityVersion {
+			out = append(out, definition)
+		}
+	}
+	return out
+}

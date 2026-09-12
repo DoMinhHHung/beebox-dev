@@ -26,6 +26,7 @@ func NewRouter(deps Dependencies) *http.ServeMux {
 		signUp:               deps.SignUp,
 		signIn:               deps.SignIn,
 		revokeSession:        deps.RevokeSession,
+		authenticateSession:  deps.AuthenticateSession,
 		requestVerification:  deps.RequestVerification,
 		verify:               deps.Verify,
 		requestPasswordReset: deps.RequestPasswordReset,
@@ -34,6 +35,9 @@ func NewRouter(deps Dependencies) *http.ServeMux {
 
 	mux.HandleFunc("POST /auth/signup", h.handleSignUp)
 	mux.HandleFunc("POST /auth/signin", h.handleSignIn)
+	if deps.AuthenticateSession != nil {
+		mux.HandleFunc("GET /auth/session", h.handleSession)
+	}
 	mux.HandleFunc("POST /auth/verification/request", h.handleRequestVerification)
 	mux.HandleFunc("POST /auth/verification/verify", h.handleVerify)
 	mux.HandleFunc("POST /auth/password-reset/request", h.handleRequestPasswordReset)

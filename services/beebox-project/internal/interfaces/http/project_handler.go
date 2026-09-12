@@ -40,16 +40,11 @@ type projectResponse struct {
 }
 
 func toProjectResponse(p domainproject.Project) projectResponse {
-	return projectResponse{
-		ID:             p.ID,
-		OrganizationID: p.OrganizationID,
-		Status:         string(p.Status),
-	}
+	return projectResponse{ID: p.ID, OrganizationID: p.OrganizationID, Status: string(p.Status)}
 }
 
 type createProjectRequest struct {
-	ID             string `json:"id"`
-	OrganizationID string `json:"organization_id"`
+	ID string `json:"id"`
 }
 
 func (h *projectHandler) create(w http.ResponseWriter, r *http.Request) {
@@ -58,25 +53,30 @@ func (h *projectHandler) create(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-
-	p, err := h.service.Create(r.Context(), req.ID, req.OrganizationID)
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	p, err := h.service.Create(r.Context(), req.ID, principal.OrganizationID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-
 	writeJSON(w, http.StatusCreated, toProjectResponse(p))
 }
 
 func (h *projectHandler) get(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-
-	p, err := h.service.Get(r.Context(), id)
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	p, err := h.service.GetAuthorized(r.Context(), r.PathValue("id"), principal.OrganizationID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-
 	writeJSON(w, http.StatusOK, toProjectResponse(p))
 }
 
@@ -100,37 +100,39 @@ func parseStatus(raw string) (domainproject.Status, error) {
 }
 
 func (h *projectHandler) transition(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-
 	var req transitionRequest
 	if err := decodeJSONBody(w, r, &req); err != nil {
 		writeError(w, err)
 		return
 	}
-
 	status, err := parseStatus(req.Status)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-
-	p, err := h.service.Transition(r.Context(), id, status)
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	p, err := h.service.TransitionAuthorized(r.Context(), r.PathValue("id"), status, principal.OrganizationID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-
 	writeJSON(w, http.StatusOK, toProjectResponse(p))
 }
 
 func (h *projectHandler) archive(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-
-	p, err := h.service.Transition(r.Context(), id, domainproject.StatusArchived)
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	p, err := h.service.TransitionAuthorized(r.Context(), r.PathValue("id"), domainproject.StatusArchived, principal.OrganizationID)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-
 	writeJSON(w, http.StatusOK, toProjectResponse(p))
 }

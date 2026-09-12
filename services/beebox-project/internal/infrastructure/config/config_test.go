@@ -80,3 +80,26 @@ func TestLoad_RejectsOutOfRangePort(t *testing.T) {
 		t.Fatalf("expected ErrInvalidPort, got %v", err)
 	}
 }
+
+func TestLoad_RejectsNonLocalHTTPIdentityURL(t *testing.T) {
+	_, err := config.Load(lookupFrom(map[string]string{
+		"DATABASE_URL": "postgres://user:pass@localhost:5432/beebox",
+		"IDENTITY_URL": "http://identity.example.com",
+	}))
+	if err != config.ErrInvalidIdentityURL {
+		t.Fatalf("expected ErrInvalidIdentityURL, got %v", err)
+	}
+}
+
+func TestLoad_AllowsLocalHTTPIdentityURL(t *testing.T) {
+	got, err := config.Load(lookupFrom(map[string]string{
+		"DATABASE_URL": "postgres://user:pass@localhost:5432/beebox",
+		"IDENTITY_URL": "http://127.0.0.1:8081",
+	}))
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if got.IdentityURL != "http://127.0.0.1:8081" {
+		t.Fatalf("unexpected IdentityURL %q", got.IdentityURL)
+	}
+}
