@@ -3,6 +3,7 @@ package catalog
 import (
 	"errors"
 
+	beeboxauth "github.com/DoMinhHHung/beebox-dev/modules/beebox-auth"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/configuration"
 )
 
@@ -19,32 +20,18 @@ var (
 	ErrIncompatibleDataFieldChange = errors.New("incompatible data field change")
 )
 
-type ChangeKind string
+type ChangeKind = beeboxauth.ChangeKind
 
 const (
-	ChangeAdditive     ChangeKind = "ADDITIVE"
-	ChangeIncompatible ChangeKind = "INCOMPATIBLE"
+	ChangeAdditive     = beeboxauth.ChangeAdditive
+	ChangeIncompatible = beeboxauth.ChangeIncompatible
 )
 
-type ModuleDefinition struct {
-	ID      string
-	Version string
-}
+type ModuleDefinition = beeboxauth.ModuleDefinition
 
-type CapabilityDefinition struct {
-	ModuleID string
-	ID       string
-	Version  string
-}
+type CapabilityDefinition = beeboxauth.CapabilityDefinition
 
-type DataFieldDefinition struct {
-	ModuleID          string
-	CapabilityID      string
-	CapabilityVersion string
-	ID                string
-	Version           string
-	ChangeKind        ChangeKind
-}
+type DataFieldDefinition = beeboxauth.DataFieldDefinition
 
 type moduleKey struct {
 	ID      string
