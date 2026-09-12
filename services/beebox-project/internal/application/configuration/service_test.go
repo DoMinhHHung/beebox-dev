@@ -276,7 +276,6 @@ func TestApply_RepairsAppliedVersionWhenStatusAlreadyApplied(t *testing.T) {
 	svc, _ := newService(t)
 	ctx := context.Background()
 	version := publishVersion(t, svc, "project-1", "organization-1")
-	// Simulate legacy path: transition to APPLIED without setting rollout.applied_version
 	legacy, err := svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusApplied)
 	if err != nil {
 		t.Fatal(err)
@@ -314,7 +313,6 @@ func TestGetAppliedConfiguration_ReturnsAppliedSnapshot(t *testing.T) {
 		t.Fatalf("apply: %v", err)
 	}
 
-	// create a newer unpublished version so latest != applied
 	if _, err := svc.CreateOrUpdate(ctx, "project-1", "organization-1", validConfiguration(t, "project-1")); err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +409,6 @@ func TestGetAppliedConfiguration_InconsistentAppliedVersion(t *testing.T) {
 	if _, _, err := svc.Apply(ctx, "project-1", "organization-1", version.Number); err != nil {
 		t.Fatal(err)
 	}
-	// Corrupt applied_version to point at missing version
 	if err := inner.SaveRollout(ctx, domainconfiguration.RolloutState{
 		ProjectID:      "project-1",
 		DesiredVersion: version.Number,

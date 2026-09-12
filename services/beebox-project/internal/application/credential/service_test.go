@@ -123,7 +123,6 @@ func TestVerifyPublic_SuccessAndFailures(t *testing.T) {
 		t.Fatalf("revoked expected unauthenticated, got %v", err)
 	}
 
-	// expired
 	issued2, err := svc.IssuePublic(ctx, "project-1", "organization-1", "frontend-2")
 	if err != nil {
 		t.Fatal(err)

@@ -200,7 +200,6 @@ func TestInternalAppliedConfiguration_RequiresInternalToken(t *testing.T) {
 		t.Fatalf("wrong scheme expected 401, got %d", rec.Code)
 	}
 
-	// Developer identity session must not authenticate internal endpoint
 	identity := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/internal/v1/projects/project-1/applied-configuration", nil)
 	identity.Header.Set("Authorization", "Bearer test-token")
 	rec = httptest.NewRecorder()
