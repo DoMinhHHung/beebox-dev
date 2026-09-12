@@ -227,7 +227,7 @@ func TestSignUpSuccess(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body.UserID != "user-1" {
+	if body.UserID != "user@example.com" {
 		t.Fatalf("unexpected user_id %q", body.UserID)
 	}
 }
