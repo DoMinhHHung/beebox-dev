@@ -4,12 +4,16 @@ import (
 	"net/http"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/apperror"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/authcap"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/projectresolve"
 )
 
-func NewRouter(resolve *projectresolve.Service) *http.ServeMux {
+func NewRouter(resolve *projectresolve.Service, sessions *authcap.Service) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", handleHealthz)
+
+	auth := &authHandler{sessions: sessions}
+	mux.HandleFunc("GET /v1/p/{project_id}/auth/session", requireProject(resolve, auth.currentSession))
 	mux.HandleFunc("GET /v1/p/{project_id}/_ready", requireProject(resolve, handleProjectReady))
 	return mux
 }

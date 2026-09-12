@@ -12,16 +12,19 @@ var (
 	ErrInvalidPort          = errors.New("PORT must be a valid port number")
 	ErrMissingProjectURL    = errors.New("PROJECT_BASE_URL is required")
 	ErrInvalidProjectURL    = errors.New("PROJECT_BASE_URL must use https unless host is localhost")
+	ErrMissingIdentityURL   = errors.New("IDENTITY_BASE_URL is required")
+	ErrInvalidIdentityURL   = errors.New("IDENTITY_BASE_URL must use https unless host is localhost")
 	ErrMissingInternalToken = errors.New("BEEBOX_INTERNAL_TOKEN is required")
 )
 
 type LookupFunc func(key string) (string, bool)
 
 type Config struct {
-	Port           string
-	ProjectBaseURL string
-	InternalToken  string
-	HTTPTimeout    time.Duration
+	Port            string
+	ProjectBaseURL  string
+	IdentityBaseURL string
+	InternalToken   string
+	HTTPTimeout     time.Duration
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -38,7 +41,16 @@ func Load(lookup LookupFunc) (Config, error) {
 		return Config{}, ErrMissingProjectURL
 	}
 	projectBaseURL = strings.TrimRight(strings.TrimSpace(projectBaseURL), "/")
-	if err := validateServiceURL(projectBaseURL); err != nil {
+	if err := validateServiceURL(projectBaseURL, ErrInvalidProjectURL); err != nil {
+		return Config{}, err
+	}
+
+	identityBaseURL, ok := lookup("IDENTITY_BASE_URL")
+	if !ok || strings.TrimSpace(identityBaseURL) == "" {
+		return Config{}, ErrMissingIdentityURL
+	}
+	identityBaseURL = strings.TrimRight(strings.TrimSpace(identityBaseURL), "/")
+	if err := validateServiceURL(identityBaseURL, ErrInvalidIdentityURL); err != nil {
 		return Config{}, err
 	}
 
@@ -57,10 +69,11 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 
 	return Config{
-		Port:           port,
-		ProjectBaseURL: projectBaseURL,
-		InternalToken:  strings.TrimSpace(internalToken),
-		HTTPTimeout:    timeout,
+		Port:            port,
+		ProjectBaseURL:  projectBaseURL,
+		IdentityBaseURL: identityBaseURL,
+		InternalToken:   strings.TrimSpace(internalToken),
+		HTTPTimeout:     timeout,
 	}, nil
 }
 
@@ -72,21 +85,21 @@ func validatePort(port string) error {
 	return nil
 }
 
-func validateServiceURL(raw string) error {
+func validateServiceURL(raw string, invalid error) error {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return ErrInvalidProjectURL
+		return invalid
 	}
 	host := strings.ToLower(parsed.Hostname())
 	local := host == "localhost" || host == "127.0.0.1" || host == "::1"
 	if local {
 		if parsed.Scheme != "http" && parsed.Scheme != "https" {
-			return ErrInvalidProjectURL
+			return invalid
 		}
 		return nil
 	}
 	if parsed.Scheme != "https" {
-		return ErrInvalidProjectURL
+		return invalid
 	}
 	return nil
 }

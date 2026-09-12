@@ -13,29 +13,26 @@ func lookup(m map[string]string) config.LookupFunc {
 	}
 }
 
-func TestLoad_RequiresProjectURLAndToken(t *testing.T) {
-	_, err := config.Load(lookup(map[string]string{}))
-	if err != config.ErrMissingProjectURL {
-		t.Fatalf("got %v", err)
-	}
-	_, err = config.Load(lookup(map[string]string{
-		"PROJECT_BASE_URL": "http://127.0.0.1:8082",
-	}))
-	if err != config.ErrMissingInternalToken {
-		t.Fatalf("got %v", err)
-	}
-}
-
 func TestLoad_OK(t *testing.T) {
 	got, err := config.Load(lookup(map[string]string{
 		"PROJECT_BASE_URL":      "http://127.0.0.1:8082",
+		"IDENTITY_BASE_URL":     "http://127.0.0.1:8081",
 		"BEEBOX_INTERNAL_TOKEN": "tok",
-		"PORT":                  "9090",
 	}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Port != "9090" || got.InternalToken != "tok" {
+	if got.IdentityBaseURL != "http://127.0.0.1:8081" {
 		t.Fatalf("%#v", got)
+	}
+}
+
+func TestLoad_RequiresIdentity(t *testing.T) {
+	_, err := config.Load(lookup(map[string]string{
+		"PROJECT_BASE_URL":      "http://127.0.0.1:8082",
+		"BEEBOX_INTERNAL_TOKEN": "tok",
+	}))
+	if err != config.ErrMissingIdentityURL {
+		t.Fatalf("got %v", err)
 	}
 }

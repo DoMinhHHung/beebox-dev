@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/apperror"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/authcap"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/projectresolve"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/domain"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/interfaces/http"
@@ -31,8 +33,33 @@ func (s stubConfigs) GetAppliedConfiguration(context.Context, string) (domain.Ap
 	return s.cfg, s.err
 }
 
+type stubIdentity struct {
+	session authcap.Session
+	err     error
+	token   string
+}
+
+func (s *stubIdentity) GetSession(_ context.Context, token string) (authcap.Session, error) {
+	s.token = token
+	return s.session, s.err
+}
+
+func sessionCFG() domain.AppliedConfiguration {
+	return domain.AppliedConfiguration{
+		ProjectID: "p1", AppliedVersion: 1, ModuleID: "beebox-auth", ModuleVersion: "v1",
+		CapabilityID: "session", CapabilityVersion: "v1",
+	}
+}
+
+func newRouter(creds stubCreds, configs stubConfigs, identity *stubIdentity) *http.ServeMux {
+	return interfaceshttp.NewRouter(
+		projectresolve.NewService(creds, configs),
+		authcap.NewService(identity),
+	)
+}
+
 func TestHealthz_NoCredential(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(stubCreds{}, stubConfigs{}))
+	router := newRouter(stubCreds{}, stubConfigs{}, &stubIdentity{})
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -41,23 +68,16 @@ func TestHealthz_NoCredential(t *testing.T) {
 	}
 }
 
-func TestProjectReady_RequiresCredential(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(stubCreds{}, stubConfigs{}))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	rec := httptest.NewRecorder()
-	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestProjectReady_Success(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(
+func TestAuthSession_HappyPath(t *testing.T) {
+	identity := &stubIdentity{session: authcap.Session{UserID: "u1", SessionID: "s1", OrganizationID: "o1"}}
+	router := newRouter(
 		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
-		stubConfigs{cfg: domain.AppliedConfiguration{ProjectID: "p1", AppliedVersion: 3, ModuleID: "beebox-auth", CapabilityID: "password"}},
-	))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	req.Header.Set("X-BeeBox-Project-Credential", "raw-key")
+		stubConfigs{cfg: sessionCFG()},
+		identity,
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "project-key")
+	req.Header.Set("Authorization", "Bearer user-session")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -67,18 +87,21 @@ func TestProjectReady_Success(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if body["project_id"] != "p1" || body["applied_version"] != float64(3) {
+	if body["project_id"] != "p1" || body["user_id"] != "u1" || body["session_id"] != "s1" {
 		t.Fatalf("%#v", body)
+	}
+	if strings.Contains(rec.Body.String(), "user-session") || strings.Contains(rec.Body.String(), "project-key") {
+		t.Fatal("must not echo credentials")
+	}
+	if identity.token != "user-session" {
+		t.Fatalf("identity token %q", identity.token)
 	}
 }
 
-func TestProjectReady_InvalidCredential(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(
-		stubCreds{err: apperror.New(apperror.CodeUnauthenticated, "unauthenticated")},
-		stubConfigs{},
-	))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	req.Header.Set("X-BeeBox-Project-Credential", "bad")
+func TestAuthSession_MissingProjectCredential(t *testing.T) {
+	router := newRouter(stubCreds{}, stubConfigs{}, &stubIdentity{})
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("Authorization", "Bearer user-session")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
@@ -86,13 +109,80 @@ func TestProjectReady_InvalidCredential(t *testing.T) {
 	}
 }
 
-func TestProjectReady_ServiceUnavailable(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(
-		stubCreds{err: apperror.New(apperror.CodeDependencyFailure, "project service unavailable")},
+func TestAuthSession_InvalidProjectCredential(t *testing.T) {
+	router := newRouter(
+		stubCreds{err: apperror.New(apperror.CodeUnauthenticated, "unauthenticated")},
 		stubConfigs{},
-	))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	req.Header.Set("X-BeeBox-Project-Credential", "raw")
+		&stubIdentity{},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "bad")
+	req.Header.Set("Authorization", "Bearer user-session")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+func TestAuthSession_WrongCapability(t *testing.T) {
+	cfg := sessionCFG()
+	cfg.CapabilityID = "password"
+	router := newRouter(
+		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
+		stubConfigs{cfg: cfg},
+		&stubIdentity{},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	req.Header.Set("Authorization", "Bearer user-session")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAuthSession_MissingUserBearer(t *testing.T) {
+	router := newRouter(
+		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
+		stubConfigs{cfg: sessionCFG()},
+		&stubIdentity{},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+func TestAuthSession_IdentityUnauthorized(t *testing.T) {
+	router := newRouter(
+		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
+		stubConfigs{cfg: sessionCFG()},
+		&stubIdentity{err: apperror.New(apperror.CodeUnauthenticated, "unauthenticated")},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	req.Header.Set("Authorization", "Bearer bad-session")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("got %d", rec.Code)
+	}
+}
+
+func TestAuthSession_IdentityUnavailable(t *testing.T) {
+	router := newRouter(
+		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
+		stubConfigs{cfg: sessionCFG()},
+		&stubIdentity{err: apperror.New(apperror.CodeDependencyFailure, "identity service unavailable")},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	req.Header.Set("Authorization", "Bearer user-session")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadGateway {
@@ -100,31 +190,39 @@ func TestProjectReady_ServiceUnavailable(t *testing.T) {
 	}
 }
 
-func TestProjectReady_NoAppliedConfig(t *testing.T) {
-	router := interfaceshttp.NewRouter(projectresolve.NewService(
+func TestAuthSession_ProjectContextNotOverriddenByUser(t *testing.T) {
+	router := newRouter(
 		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
-		stubConfigs{err: apperror.New(apperror.CodeNotFound, "configuration not applied")},
-	))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	req.Header.Set("X-BeeBox-Project-Credential", "raw")
+		stubConfigs{cfg: sessionCFG()},
+		&stubIdentity{session: authcap.Session{UserID: "u-from-b", SessionID: "s1", OrganizationID: "org-b"}},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	req.Header.Set("Authorization", "Bearer user-session")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusNotFound {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("got %d", rec.Code)
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["project_id"] != "p1" {
+		t.Fatalf("project must stay p1, got %#v", body["project_id"])
 	}
 }
 
-func TestProjectReady_RejectsInternalTokenAsProjectCredentialSemantics(t *testing.T) {
-	// Internal token is never accepted as project credential: verifier returns unauthenticated
-	router := interfaceshttp.NewRouter(projectresolve.NewService(
-		stubCreds{err: apperror.New(apperror.CodeUnauthenticated, "unauthenticated")},
-		stubConfigs{},
-	))
-	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/_ready", nil)
-	req.Header.Set("X-BeeBox-Project-Credential", "internal-service-token")
+func TestAuthSession_NoAppliedConfig(t *testing.T) {
+	router := newRouter(
+		stubCreds{ctx: domain.ProjectContext{ProjectID: "p1", CredentialID: "c1"}},
+		stubConfigs{err: apperror.New(apperror.CodeNotFound, "configuration not applied")},
+		&stubIdentity{},
+	)
+	req := httptest.NewRequest(http.MethodGet, "/v1/p/p1/auth/session", nil)
+	req.Header.Set("X-BeeBox-Project-Credential", "key")
+	req.Header.Set("Authorization", "Bearer user-session")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
-	if rec.Code != http.StatusUnauthorized {
+	if rec.Code != http.StatusNotFound {
 		t.Fatalf("got %d", rec.Code)
 	}
 }

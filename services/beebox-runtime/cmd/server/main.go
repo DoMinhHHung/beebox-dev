@@ -9,8 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/authcap"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/application/projectresolve"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/infrastructure/config"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/infrastructure/identityclient"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/infrastructure/projectclient"
 	interfaceshttp "github.com/DoMinhHHung/beebox-dev/services/beebox-runtime/internal/interfaces/http"
 )
@@ -21,9 +23,11 @@ func main() {
 		log.Fatalf("beebox-runtime: invalid configuration: %v", err)
 	}
 
-	client := projectclient.New(cfg.ProjectBaseURL, cfg.InternalToken, cfg.HTTPTimeout, nil)
-	resolve := projectresolve.NewService(client, client)
-	router := interfaceshttp.NewRouter(resolve)
+	projectHTTP := projectclient.New(cfg.ProjectBaseURL, cfg.InternalToken, cfg.HTTPTimeout, nil)
+	identityHTTP := identityclient.New(cfg.IdentityBaseURL, cfg.HTTPTimeout, nil)
+	resolve := projectresolve.NewService(projectHTTP, projectHTTP)
+	sessions := authcap.NewService(identityHTTP)
+	router := interfaceshttp.NewRouter(resolve, sessions)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
