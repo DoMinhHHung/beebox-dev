@@ -110,6 +110,7 @@ cp .env.example .env
 # edit .env with a real DATABASE_URL
 
 psql "$DATABASE_URL" -f migrations/0001_create_projects.sql
+psql "$DATABASE_URL" -f migrations/0002_create_project_configuration.sql
 
 export $(cat .env | xargs)
 go run ./cmd/server
@@ -121,6 +122,7 @@ Required environment variables:
 |---|---|---|
 | `DATABASE_URL` | yes | — |
 | `PORT` | no | `8080` |
+| `IDENTITY_URL` | no | `http://localhost:8081` |
 
 The service fails fast with a clear error if `DATABASE_URL` is missing or
 `PORT` is not a valid port number.
@@ -155,7 +157,12 @@ secret.
 | `GET` | `/v1/projects/{id}` | Get a project |
 | `PATCH` | `/v1/projects/{id}` | Transition project status |
 | `DELETE` | `/v1/projects/{id}` | Archive a project (soft; not physical deletion) |
+| `PUT` | `/v1/projects/{id}/configuration` | Create a new project configuration version |
+| `GET` | `/v1/projects/{id}/configuration` | Get the current project configuration version |
+| `GET` | `/v1/projects/{id}/configuration/versions/{version}` | Get a specific configuration version |
+| `PATCH` | `/v1/projects/{id}/configuration/versions/{version}` | Transition a configuration version lifecycle |
+| `POST` | `/v1/projects/{id}/configuration/versions/{version}/rollout` | Set the desired rollout version |
 
-No authentication is enforced at this layer yet — this service is expected
-to run behind an internal boundary (gateway or service-to-service auth)
-before being exposed externally.
+All project and configuration endpoints require the existing identity session
+authentication. Configuration access is authorized through the project's
+organization ownership boundary.
