@@ -32,13 +32,12 @@ func main() {
 
 	repo := postgres.NewProjectRepository(pool)
 	service := project.NewService(repo)
-	configurationRepo := postgres.NewConfigurationRepository(pool)
-	configurationService := applicationconfiguration.NewService(configurationRepo, service)
-
 	beeCatalog, err := catalogseed.Default()
 	if err != nil {
 		log.Fatalf("beebox-project: invalid catalog seed: %v", err)
 	}
+	configurationRepo := postgres.NewConfigurationRepository(pool)
+	configurationService := applicationconfiguration.NewService(configurationRepo, service, beeCatalog)
 	enablementRepo := postgres.NewEnablementRepository(pool)
 	enablementService := applicationenablement.NewService(enablementRepo, service, beeCatalog)
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/apperror"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/catalog"
 	domainconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/configuration"
 	domainproject "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/project"
 )
@@ -25,10 +26,11 @@ type ProjectAuthorizer interface {
 type Service struct {
 	repo     Repository
 	projects ProjectAuthorizer
+	catalog  catalog.Catalog
 }
 
-func NewService(repo Repository, projects ProjectAuthorizer) *Service {
-	return &Service{repo: repo, projects: projects}
+func NewService(repo Repository, projects ProjectAuthorizer, cat catalog.Catalog) *Service {
+	return &Service{repo: repo, projects: projects, catalog: cat}
 }
 
 func (s *Service) CreateOrUpdate(ctx context.Context, projectID, organizationID string, config domainconfiguration.Configuration) (domainconfiguration.Version, error) {
@@ -46,14 +48,30 @@ func (s *Service) CreateOrUpdate(ctx context.Context, projectID, organizationID 
 	if err != nil {
 		return domainconfiguration.Version{}, apperror.New(apperror.CodeValidation, err.Error())
 	}
+	if _, err := s.catalog.Module(validated.ModuleID, validated.ModuleVersion); err != nil {
+		return domainconfiguration.Version{}, apperror.New(apperror.CodeValidation, err.Error())
+	}
+	if _, err := s.catalog.Capability(validated.ModuleID, validated.CapabilityID, validated.CapabilityVersion); err != nil {
+		return domainconfiguration.Version{}, apperror.New(apperror.CodeValidation, err.Error())
+	}
+	for _, field := range validated.DataFields {
+		if _, err := s.catalog.DataField(field.ModuleID, field.CapabilityID, field.CapabilityVersion, field.ID, field.Version); err != nil {
+			return domainconfiguration.Version{}, apperror.New(apperror.CodeValidation, err.Error())
+		}
+	}
 	config = validated
 	latest, err := s.repo.GetLatestVersion(ctx, projectID)
 	if err != nil && !errors.Is(err, ErrVersionNotFound) {
 		return domainconfiguration.Version{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load configuration", err)
 	}
+	var previousFields []domainconfiguration.DataFieldReference
 	number := 1
 	if err == nil {
+		previousFields = latest.Configuration.DataFields
 		number = latest.Number + 1
+	}
+	if err := s.catalog.ValidateDataFieldTransition(previousFields, validated.DataFields); err != nil {
+		return domainconfiguration.Version{}, apperror.New(apperror.CodeValidation, err.Error())
 	}
 	version, err := domainconfiguration.NewVersion(projectID, number, config)
 	if err != nil {

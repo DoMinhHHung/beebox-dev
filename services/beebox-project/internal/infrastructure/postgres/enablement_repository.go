@@ -55,17 +55,17 @@ func (r *EnablementRepository) Update(ctx context.Context, item domainenablement
 	}
 	defer tx.Rollback(ctx)
 
-	const check = `
-		SELECT 1 FROM project_capabilities
+	const updateCapability = `
+		UPDATE project_capabilities
+		SET module_version = $4, capability_version = $5
 		WHERE project_id = $1 AND module_id = $2 AND capability_id = $3
 	`
-	var one int
-	err = tx.QueryRow(ctx, check, item.ProjectID, item.ModuleID, item.CapabilityID).Scan(&one)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return applicationenablement.ErrEnablementNotFound
-	}
+	tag, err := tx.Exec(ctx, updateCapability, item.ProjectID, item.ModuleID, item.CapabilityID, item.ModuleVersion, item.CapabilityVersion)
 	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return applicationenablement.ErrEnablementNotFound
 	}
 
 	const deleteFields = `
@@ -73,15 +73,6 @@ func (r *EnablementRepository) Update(ctx context.Context, item domainenablement
 		WHERE project_id = $1 AND module_id = $2 AND capability_id = $3
 	`
 	if _, err := tx.Exec(ctx, deleteFields, item.ProjectID, item.ModuleID, item.CapabilityID); err != nil {
-		return err
-	}
-
-	const updateCapability = `
-		UPDATE project_capabilities
-		SET module_version = $4, capability_version = $5
-		WHERE project_id = $1 AND module_id = $2 AND capability_id = $3
-	`
-	if _, err := tx.Exec(ctx, updateCapability, item.ProjectID, item.ModuleID, item.CapabilityID, item.ModuleVersion, item.CapabilityVersion); err != nil {
 		return err
 	}
 
@@ -129,19 +120,35 @@ func (r *EnablementRepository) ListByProject(ctx context.Context, projectID stri
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var out []domainenablement.Enablement
+	type capabilityRow struct {
+		moduleID          string
+		moduleVersion     string
+		capabilityID      string
+		capabilityVersion string
+	}
+	var rowsData []capabilityRow
 	for rows.Next() {
-		var moduleID, moduleVersion, capabilityID, capabilityVersion string
-		if err := rows.Scan(&moduleID, &moduleVersion, &capabilityID, &capabilityVersion); err != nil {
+		var row capabilityRow
+		if err := rows.Scan(&row.moduleID, &row.moduleVersion, &row.capabilityID, &row.capabilityVersion); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		fields, err := r.loadEnablementFields(ctx, projectID, moduleID, capabilityID)
+		rowsData = append(rowsData, row)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	var out []domainenablement.Enablement
+	for _, row := range rowsData {
+		fields, err := r.loadEnablementFields(ctx, projectID, row.moduleID, row.capabilityID)
 		if err != nil {
 			return nil, err
 		}
-		item, err := domainenablement.New(projectID, moduleID, moduleVersion, capabilityID, capabilityVersion)
+		item, err := domainenablement.New(projectID, row.moduleID, row.moduleVersion, row.capabilityID, row.capabilityVersion)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +158,7 @@ func (r *EnablementRepository) ListByProject(ctx context.Context, projectID stri
 		}
 		out = append(out, item)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (r *EnablementRepository) Delete(ctx context.Context, projectID, moduleID, capabilityID string) error {

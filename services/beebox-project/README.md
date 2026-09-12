@@ -111,6 +111,7 @@ cp .env.example .env
 
 psql "$DATABASE_URL" -f migrations/0001_create_projects.sql
 psql "$DATABASE_URL" -f migrations/0002_create_project_configuration.sql
+psql "$DATABASE_URL" -f migrations/0003_create_project_capabilities.sql
 
 export $(cat .env | xargs)
 go run ./cmd/server

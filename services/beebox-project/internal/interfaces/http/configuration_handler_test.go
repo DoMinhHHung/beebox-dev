@@ -10,13 +10,14 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/auth"
 	applicationconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/configuration"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/catalog"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/memory"
 )
 
 func newConfigurationRouter(repo *memory.ProjectRepository, organizationID string) *http.ServeMux {
 	projects := project.NewService(repo)
 	configurationRepo := memory.NewConfigurationRepository()
-	configurations := applicationconfiguration.NewService(configurationRepo, projects)
+	configurations := applicationconfiguration.NewService(configurationRepo, projects, mustTestCatalog())
 	return NewRouterWithConfiguration(projects, configurations, testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: organizationID}})
 }
 
@@ -79,4 +80,16 @@ func TestConfiguration_RejectsMalformedAndInvalidBody(t *testing.T) {
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid config, got %d", invalid.Code)
 	}
+}
+
+func mustTestCatalog() catalog.Catalog {
+	cat, err := catalog.New(
+		[]catalog.ModuleDefinition{{ID: "auth", Version: "v1"}},
+		[]catalog.CapabilityDefinition{{ModuleID: "auth", ID: "login", Version: "v1"}},
+		nil,
+	)
+	if err != nil {
+		panic(err)
+	}
+	return cat
 }

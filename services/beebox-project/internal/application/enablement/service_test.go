@@ -117,3 +117,25 @@ func TestUnknownFieldRejected(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+func TestEnable_RejectsIncompatibleField(t *testing.T) {
+	repo := memory.NewEnablementRepository()
+	cat, err := catalog.New(
+		[]catalog.ModuleDefinition{{ID: "beebox-auth", Version: "v1"}},
+		[]catalog.CapabilityDefinition{{ModuleID: "beebox-auth", ID: "password", Version: "v1"}},
+		[]catalog.DataFieldDefinition{
+			{ModuleID: "beebox-auth", CapabilityID: "password", CapabilityVersion: "v1", ID: "password_hash", Version: "v1", ChangeKind: catalog.ChangeIncompatible},
+		},
+	)
+	if err != nil {
+		t.Fatalf("catalog: %v", err)
+	}
+	svc := applicationenablement.NewService(repo, fakeAuthorizer{project: domainproject.Project{ID: "p1", OrganizationID: "org1"}}, cat)
+	fields := []configuration.DataFieldReference{
+		{ModuleID: "beebox-auth", CapabilityID: "password", CapabilityVersion: "v1", ID: "password_hash", Version: "v1"},
+	}
+	_, err = svc.Enable(context.Background(), "p1", "org1", "beebox-auth", "v1", "password", "v1", fields)
+	if err == nil || !apperror.IsCode(err, apperror.CodeValidation) {
+		t.Fatalf("err=%v", err)
+	}
+}

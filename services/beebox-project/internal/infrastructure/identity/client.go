@@ -18,7 +18,18 @@ type Client struct {
 
 func NewClient(baseURL string, httpClient *http.Client) *Client {
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 5 * time.Second}
+		httpClient = &http.Client{
+			Timeout: 5 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) > 0 && via[0].URL.Scheme == "https" && req.URL.Scheme == "http" {
+					return http.ErrUseLastResponse
+				}
+				if len(via) >= 10 {
+					return http.ErrUseLastResponse
+				}
+				return nil
+			},
+		}
 	}
 	return &Client{baseURL: strings.TrimRight(baseURL, "/"), httpClient: httpClient}
 }
@@ -26,8 +37,9 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 var _ auth.Authenticator = (*Client)(nil)
 
 type sessionResponse struct {
-	UserID    string `json:"user_id"`
-	SessionID string `json:"session_id"`
+	UserID         string `json:"user_id"`
+	SessionID      string `json:"session_id"`
+	OrganizationID string `json:"organization_id"`
 }
 
 func (c *Client) Authenticate(ctx context.Context, token string) (auth.Principal, error) {
@@ -55,9 +67,9 @@ func (c *Client) Authenticate(ctx context.Context, token string) (auth.Principal
 	}
 
 	var session sessionResponse
-	if err := json.NewDecoder(res.Body).Decode(&session); err != nil || session.UserID == "" {
+	if err := json.NewDecoder(res.Body).Decode(&session); err != nil || session.UserID == "" || session.OrganizationID == "" {
 		return auth.Principal{}, apperror.New(apperror.CodeDependencyFailure, "identity authentication failed")
 	}
 
-	return auth.Principal{UserID: session.UserID, OrganizationID: session.UserID}, nil
+	return auth.Principal{UserID: session.UserID, OrganizationID: session.OrganizationID}, nil
 }

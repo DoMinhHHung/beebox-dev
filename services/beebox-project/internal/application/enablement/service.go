@@ -94,6 +94,9 @@ func (s *Service) Enable(
 	if err := s.validateFields(fields, moduleID, capabilityID, capabilityVersion); err != nil {
 		return domainenablement.Enablement{}, err
 	}
+	if err := s.catalog.ValidateDataFieldTransition(nil, fields); err != nil {
+		return domainenablement.Enablement{}, mapCatalogError(err)
+	}
 
 	if err := s.repo.Save(ctx, enabled); err != nil {
 		if errors.Is(err, ErrEnablementAlreadyExists) {

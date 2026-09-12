@@ -7,6 +7,7 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/apperror"
 	applicationconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/configuration"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/catalog"
 	domainconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/configuration"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/memory"
 )
@@ -18,7 +19,15 @@ func newService(t *testing.T) (*applicationconfiguration.Service, *project.Servi
 	if _, err := projects.Create(context.Background(), "project-1", "organization-1"); err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	return applicationconfiguration.NewService(memory.NewConfigurationRepository(), projects), projects
+	cat, err := catalog.New(
+		[]catalog.ModuleDefinition{{ID: "auth", Version: "v1"}},
+		[]catalog.CapabilityDefinition{{ModuleID: "auth", ID: "login", Version: "v1"}},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("catalog: %v", err)
+	}
+	return applicationconfiguration.NewService(memory.NewConfigurationRepository(), projects, cat), projects
 }
 
 func validConfiguration(t *testing.T, projectID string) domainconfiguration.Configuration {
