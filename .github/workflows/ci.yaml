@@ -20,7 +20,7 @@ jobs:
       modules: ${{ steps.find.outputs.modules }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -29,16 +29,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          MODULES="$(
+          MODULES="$({
             find . \
               -name go.mod \
               -type f \
               -not -path './.git/*' \
-              -exec dirname {} \; |
-            sed 's|^\./||' |
-            sort |
-            jq -R -s -c 'split("\n") | map(select(length > 0))'
-          )"
+              -exec dirname {} \;
+          } | sed 's|^\./||' | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')"
 
           if [ "$MODULES" = "[]" ]; then
             echo "No Go modules found"
@@ -57,11 +54,11 @@ jobs:
         module: ${{ fromJson(needs.discover.outputs.modules) }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
           cache: true
@@ -70,6 +67,7 @@ jobs:
       - name: gofmt check
         working-directory: ${{ matrix.module }}
         run: |
+          set -euo pipefail
           UNFORMATTED="$(gofmt -l .)"
           if [ -n "$UNFORMATTED" ]; then
             echo "$UNFORMATTED"
@@ -86,4 +84,55 @@ jobs:
 
       - name: go test
         working-directory: ${{ matrix.module }}
+        run: go test ./...
+
+      - name: go test race
+        working-directory: ${{ matrix.module }}
         run: go test -race -count=1 ./...
+
+      - name: go build
+        working-directory: ${{ matrix.module }}
+        run: go build ./...
+
+  beebox-identity-integration:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: services/beebox-identity
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: identity
+          POSTGRES_PASSWORD: identity
+          POSTGRES_DB: identity_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U identity -d identity_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.5"
+          cache: true
+          cache-dependency-path: services/beebox-identity/go.sum
+
+      - name: apply migrations
+        env:
+          DATABASE_URL: postgres://identity:identity@localhost:5432/identity_test?sslmode=disable
+        run: go run ./cmd/migrate
+
+      - name: integration tests
+        env:
+          BEEBOX_IDENTITY_TEST_DATABASE_URL: postgres://identity:identity@localhost:5432/identity_test?sslmode=disable
+        run: go test -tags=integration -count=1 ./internal/infrastructure/postgres/
