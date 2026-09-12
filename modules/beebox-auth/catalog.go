@@ -43,19 +43,21 @@ const (
 	FieldPasswordHashVer = "v1"
 )
 
-func DefaultDefinitions() (
-	modules []ModuleDefinition,
-	capabilities []CapabilityDefinition,
-	dataFields []DataFieldDefinition,
-) {
-	modules = []ModuleDefinition{
+func Modules() []ModuleDefinition {
+	return []ModuleDefinition{
 		{ID: ModuleID, Version: ModuleVersion},
 	}
-	capabilities = []CapabilityDefinition{
+}
+
+func Capabilities() []CapabilityDefinition {
+	return []CapabilityDefinition{
 		{ModuleID: ModuleID, ID: CapabilityPassword, Version: CapabilityPasswordVersion},
 		{ModuleID: ModuleID, ID: CapabilitySession, Version: CapabilitySessionVersion},
 	}
-	dataFields = []DataFieldDefinition{
+}
+
+func DataFields() []DataFieldDefinition {
+	return []DataFieldDefinition{
 		{
 			ModuleID: ModuleID, CapabilityID: CapabilityPassword, CapabilityVersion: CapabilityPasswordVersion,
 			ID: FieldEmail, Version: FieldEmailVersion, ChangeKind: ChangeAdditive,
@@ -65,5 +67,12 @@ func DefaultDefinitions() (
 			ID: FieldPasswordHash, Version: FieldPasswordHashVer, ChangeKind: ChangeIncompatible,
 		},
 	}
-	return modules, capabilities, dataFields
+}
+
+func DefaultDefinitions() (
+	modules []ModuleDefinition,
+	capabilities []CapabilityDefinition,
+	dataFields []DataFieldDefinition,
+) {
+	return Modules(), Capabilities(), DataFields()
 }
