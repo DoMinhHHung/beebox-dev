@@ -15,14 +15,19 @@ func TestLoad(t *testing.T) {
 		{
 			name: "default port",
 			lookup: func(key string) (string, bool) {
-				if key == "DATABASE_URL" {
+				switch key {
+				case "DATABASE_URL":
 					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				case "VERIFICATION_CODE_SECRET":
+					return "test-verification-secret", true
+				default:
+					return "", false
 				}
-				return "", false
 			},
 			want: Config{
-				Port:        "8081",
-				DatabaseURL: "postgres://identity:identity@localhost:5432/identity?sslmode=disable",
+				Port:                   "8081",
+				DatabaseURL:            "postgres://identity:identity@localhost:5432/identity?sslmode=disable",
+				VerificationCodeSecret: "test-verification-secret",
 			},
 		},
 		{
@@ -33,17 +38,72 @@ func TestLoad(t *testing.T) {
 			wantErr: ErrMissingDatabaseURL,
 		},
 		{
+			name: "whitespace only database url",
+			lookup: func(key string) (string, bool) {
+				if key == "DATABASE_URL" {
+					return "   \t  ", true
+				}
+				return "", false
+			},
+			wantErr: ErrMissingDatabaseURL,
+		},
+		{
+			name: "trims surrounding whitespace",
+			lookup: func(key string) (string, bool) {
+				switch key {
+				case "DATABASE_URL":
+					return "  postgres://identity:identity@localhost:5432/identity?sslmode=disable  ", true
+				case "VERIFICATION_CODE_SECRET":
+					return "  secret-value  ", true
+				default:
+					return "", false
+				}
+			},
+			want: Config{
+				Port:                   "8081",
+				DatabaseURL:            "postgres://identity:identity@localhost:5432/identity?sslmode=disable",
+				VerificationCodeSecret: "secret-value",
+			},
+		},
+		{
 			name: "invalid port",
 			lookup: func(key string) (string, bool) {
-				if key == "PORT" {
+				switch key {
+				case "PORT":
 					return "65536", true
+				case "DATABASE_URL":
+					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				case "VERIFICATION_CODE_SECRET":
+					return "secret", true
+				default:
+					return "", false
 				}
+			},
+			wantErr: ErrInvalidPort,
+		},
+		{
+			name: "missing verification code secret",
+			lookup: func(key string) (string, bool) {
 				if key == "DATABASE_URL" {
 					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
 				}
 				return "", false
 			},
-			wantErr: ErrInvalidPort,
+			wantErr: ErrMissingVerificationCodeSecret,
+		},
+		{
+			name: "whitespace only verification code secret",
+			lookup: func(key string) (string, bool) {
+				switch key {
+				case "DATABASE_URL":
+					return "postgres://identity:identity@localhost:5432/identity?sslmode=disable", true
+				case "VERIFICATION_CODE_SECRET":
+					return "  \t ", true
+				default:
+					return "", false
+				}
+			},
+			wantErr: ErrMissingVerificationCodeSecret,
 		},
 	}
 
@@ -53,8 +113,16 @@ func TestLoad(t *testing.T) {
 			if !errors.Is(err, test.wantErr) {
 				t.Fatalf("expected error %v, got %v", test.wantErr, err)
 			}
-			if test.wantErr == nil && got.Port != test.want.Port {
-				t.Fatalf("expected port %s, got %s", test.want.Port, got.Port)
+			if test.wantErr == nil {
+				if got.Port != test.want.Port {
+					t.Fatalf("expected port %s, got %s", test.want.Port, got.Port)
+				}
+				if got.DatabaseURL != test.want.DatabaseURL {
+					t.Fatalf("expected database url %q, got %q", test.want.DatabaseURL, got.DatabaseURL)
+				}
+				if got.VerificationCodeSecret != test.want.VerificationCodeSecret {
+					t.Fatalf("expected verification secret %q, got %q", test.want.VerificationCodeSecret, got.VerificationCodeSecret)
+				}
 			}
 		})
 	}

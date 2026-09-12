@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -72,6 +74,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 		if err == nil {
 			fmt.Printf("skip %s (already applied)\n", base)
 			continue
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			fmt.Fprintf(os.Stderr, "check migration %s: %v\n", base, err)
+			os.Exit(1)
 		}
 
 		sqlBytes, err := os.ReadFile(file)

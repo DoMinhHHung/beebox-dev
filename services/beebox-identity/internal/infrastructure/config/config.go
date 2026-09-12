@@ -3,26 +3,29 @@ package config
 import (
 	"errors"
 	"strconv"
+	"strings"
 )
 
 var (
-	ErrInvalidPort        = errors.New("PORT must be a valid port number")
-	ErrMissingDatabaseURL = errors.New("DATABASE_URL is required")
+	ErrInvalidPort                   = errors.New("PORT must be a valid port number")
+	ErrMissingDatabaseURL            = errors.New("DATABASE_URL is required")
+	ErrMissingVerificationCodeSecret = errors.New("VERIFICATION_CODE_SECRET is required")
 )
 
 type LookupFunc func(key string) (string, bool)
 
 type Config struct {
-	Port             string
-	DatabaseURL      string
-	SMTPHost         string
-	SMTPPort         int
-	SMTPUser         string
-	SMTPPass         string
-	SMTPFrom         string
-	TwilioAccountSID string
-	TwilioAuthToken  string
-	TwilioFromNumber string
+	Port                   string
+	DatabaseURL            string
+	VerificationCodeSecret string
+	SMTPHost               string
+	SMTPPort               int
+	SMTPUser               string
+	SMTPPass               string
+	SMTPFrom               string
+	TwilioAccountSID       string
+	TwilioAuthToken        string
+	TwilioFromNumber       string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -35,8 +38,21 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 
 	databaseURL, ok := lookup("DATABASE_URL")
-	if !ok || databaseURL == "" {
+	if !ok {
 		return Config{}, ErrMissingDatabaseURL
+	}
+	databaseURL = strings.TrimSpace(databaseURL)
+	if databaseURL == "" {
+		return Config{}, ErrMissingDatabaseURL
+	}
+
+	verificationSecret, ok := lookup("VERIFICATION_CODE_SECRET")
+	if !ok {
+		return Config{}, ErrMissingVerificationCodeSecret
+	}
+	verificationSecret = strings.TrimSpace(verificationSecret)
+	if verificationSecret == "" {
+		return Config{}, ErrMissingVerificationCodeSecret
 	}
 
 	smtpHost, _ := lookup("SMTP_HOST")
@@ -57,16 +73,17 @@ func Load(lookup LookupFunc) (Config, error) {
 	twilioFrom, _ := lookup("TWILIO_FROM_NUMBER")
 
 	return Config{
-		Port:             port,
-		DatabaseURL:      databaseURL,
-		SMTPHost:         smtpHost,
-		SMTPPort:         smtpPort,
-		SMTPUser:         smtpUser,
-		SMTPPass:         smtpPass,
-		SMTPFrom:         smtpFrom,
-		TwilioAccountSID: twilioAccountSID,
-		TwilioAuthToken:  twilioAuthToken,
-		TwilioFromNumber: twilioFrom,
+		Port:                   port,
+		DatabaseURL:            databaseURL,
+		VerificationCodeSecret: verificationSecret,
+		SMTPHost:               smtpHost,
+		SMTPPort:               smtpPort,
+		SMTPUser:               smtpUser,
+		SMTPPass:               smtpPass,
+		SMTPFrom:               smtpFrom,
+		TwilioAccountSID:       twilioAccountSID,
+		TwilioAuthToken:        twilioAuthToken,
+		TwilioFromNumber:       twilioFrom,
 	}, nil
 }
 

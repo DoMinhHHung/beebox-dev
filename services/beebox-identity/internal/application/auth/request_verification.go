@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -39,6 +40,7 @@ type RequestVerificationService struct {
 	email         VerificationMailer
 	sms           VerificationSMSSender
 	clock         Clock
+	codeSecret    string
 	ttl           time.Duration
 	randReader    io.Reader
 }
@@ -49,6 +51,7 @@ func NewRequestVerificationService(
 	email VerificationMailer,
 	sms VerificationSMSSender,
 	clock Clock,
+	codeSecret string,
 ) *RequestVerificationService {
 	return &RequestVerificationService{
 		users:         users,
@@ -56,6 +59,7 @@ func NewRequestVerificationService(
 		email:         email,
 		sms:           sms,
 		clock:         clock,
+		codeSecret:    codeSecret,
 		ttl:           defaultVerificationTTL,
 		randReader:    rand.Reader,
 	}
@@ -88,7 +92,7 @@ func (s *RequestVerificationService) RequestVerification(ctx context.Context, in
 	if err != nil {
 		return RequestVerificationResult{}, apperror.Wrap(apperror.CodeInternal, "verification code generation failed", err)
 	}
-	codeHash := hashVerificationCode(code)
+	codeHash := hashVerificationCode(s.codeSecret, code)
 
 	id, err := generateVerificationID(s.randReader)
 	if err != nil {
@@ -171,9 +175,10 @@ func generateVerificationID(r io.Reader) (string, error) {
 	return hex.EncodeToString(buf), nil
 }
 
-func hashVerificationCode(code string) string {
-	sum := sha256.Sum256([]byte(code))
-	return hex.EncodeToString(sum[:])
+func hashVerificationCode(secret, code string) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write([]byte(code))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 func translateVerificationDomainError(err error) error {

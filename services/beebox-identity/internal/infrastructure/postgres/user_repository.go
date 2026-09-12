@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/application/auth"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/identity"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/user"
@@ -27,7 +29,14 @@ func (r *UserRepository) Create(ctx context.Context, value user.User) error {
 		`INSERT INTO users (id, created_at) VALUES ($1, $2)`,
 		value.ID().String(), value.CreatedAt().UTC(),
 	)
-	return err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return apperror.New(apperror.CodeConflict, "identity already exists")
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *UserRepository) FindByIdentifier(ctx context.Context, identifier identity.Identifier) (user.User, error) {

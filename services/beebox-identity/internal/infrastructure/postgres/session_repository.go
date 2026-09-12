@@ -73,7 +73,7 @@ func (r *SessionRepository) Revoke(ctx context.Context, value session.Session) e
 		return errors.New("session is not revoked")
 	}
 	tag, err := q.Exec(ctx,
-		`UPDATE sessions SET revoked_at = $2 WHERE id = $1`,
+		`UPDATE sessions SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL`,
 		value.ID(), revokedAt.UTC(),
 	)
 	if err != nil {

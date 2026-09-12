@@ -28,12 +28,14 @@ type VerifyResult struct {
 type VerifyService struct {
 	verifications VerificationRepository
 	clock         Clock
+	codeSecret    string
 }
 
-func NewVerifyService(verifications VerificationRepository, clock Clock) *VerifyService {
+func NewVerifyService(verifications VerificationRepository, clock Clock, codeSecret string) *VerifyService {
 	return &VerifyService{
 		verifications: verifications,
 		clock:         clock,
+		codeSecret:    codeSecret,
 	}
 }
 
@@ -71,7 +73,7 @@ func (s *VerifyService) Verify(ctx context.Context, input VerifyInput) (VerifyRe
 		return VerifyResult{}, apperror.New(apperror.CodeConflict, "verification not usable")
 	}
 
-	suppliedHash := hashVerificationCode(input.Code)
+	suppliedHash := hashVerificationCode(s.codeSecret, input.Code)
 	if subtle.ConstantTimeCompare([]byte(suppliedHash), []byte(found.CodeHash())) != 1 {
 		return VerifyResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid verification code")
 	}

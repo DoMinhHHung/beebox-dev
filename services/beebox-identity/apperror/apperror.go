@@ -47,7 +47,7 @@ func Wrap(code Code, message string, cause error) *Error {
 
 func IsCode(err error, code Code) bool {
 	var appErr *Error
-	if errors.As(err, &appErr) {
+	if errors.As(err, &appErr) && appErr != nil {
 		return appErr.Code == code
 	}
 	return false
@@ -55,7 +55,7 @@ func IsCode(err error, code Code) bool {
 
 func CodeOf(err error) Code {
 	var appErr *Error
-	if errors.As(err, &appErr) {
+	if errors.As(err, &appErr) && appErr != nil {
 		return appErr.Code
 	}
 	return CodeInternal

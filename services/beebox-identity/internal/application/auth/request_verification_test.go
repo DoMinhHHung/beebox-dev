@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
@@ -86,7 +87,7 @@ func TestRequestVerificationSuccessEmail(t *testing.T) {
 	users := &fakeVerificationUserRepository{findUser: u}
 	repo := &fakeVerificationRepository{}
 	mailer := &fakeVerificationMailer{}
-	service := NewRequestVerificationService(users, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
+	service := NewRequestVerificationService(users, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now}, "test-verification-secret")
 
 	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
@@ -116,7 +117,7 @@ func TestRequestVerificationSuccessEmail(t *testing.T) {
 func TestRequestVerificationSuccessPhone(t *testing.T) {
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	sms := &fakeVerificationSMSSender{}
-	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, sms, &fakeClock{now: now})
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, sms, &fakeClock{now: now}, "test-verification-secret")
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
 		Type:   "phone",
@@ -134,7 +135,7 @@ func TestRequestVerificationDeliveryFailureStillAccepted(t *testing.T) {
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	mailer := &fakeVerificationMailer{err: errors.New("smtp down")}
 	repo := &fakeVerificationRepository{}
-	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now}, "test-verification-secret")
 	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
 		Type:   "email",
@@ -157,7 +158,7 @@ func TestRequestVerificationUnknownUserEnumerationSafe(t *testing.T) {
 	repo := &fakeVerificationRepository{}
 	mailer := &fakeVerificationMailer{}
 	sms := &fakeVerificationSMSSender{}
-	service := NewRequestVerificationService(users, repo, mailer, sms, &fakeClock{now: now})
+	service := NewRequestVerificationService(users, repo, mailer, sms, &fakeClock{now: now}, "test-verification-secret")
 	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "missing-user",
 		Type:   "email",
@@ -180,7 +181,7 @@ func TestRequestVerificationUnknownUserEnumerationSafe(t *testing.T) {
 func TestRequestVerificationUserLookupFailure(t *testing.T) {
 	users := &fakeVerificationUserRepository{findErr: errors.New("db down")}
 	repo := &fakeVerificationRepository{}
-	service := NewRequestVerificationService(users, repo, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()})
+	service := NewRequestVerificationService(users, repo, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()}, "test-verification-secret")
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
 		Type:   "email",
@@ -195,7 +196,7 @@ func TestRequestVerificationUserLookupFailure(t *testing.T) {
 }
 
 func TestRequestVerificationValidation(t *testing.T) {
-	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()})
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()}, "test-verification-secret")
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{UserID: "", Type: "email", Target: "a"})
 	if !apperror.IsCode(err, apperror.CodeValidation) {
 		t.Fatalf("expected validation, got %v", err)
@@ -213,4 +214,48 @@ func mustUser(t *testing.T) user.User {
 		t.Fatalf("user: %v", err)
 	}
 	return u
+}
+
+func TestHashVerificationCodeDeterministic(t *testing.T) {
+	secret := "test-verification-secret"
+	a := hashVerificationCode(secret, "123456")
+	b := hashVerificationCode(secret, "123456")
+	if a != b || a == "" {
+		t.Fatalf("expected deterministic non-empty digest")
+	}
+}
+
+func TestHashVerificationCodeChangesWithSecret(t *testing.T) {
+	a := hashVerificationCode("secret-a", "123456")
+	b := hashVerificationCode("secret-b", "123456")
+	if a == b {
+		t.Fatal("expected different digests for different secrets")
+	}
+}
+
+func TestRequestVerificationStoresHMACDigest(t *testing.T) {
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	users := &fakeVerificationUserRepository{findUser: mustUser(t)}
+	repo := &fakeVerificationRepository{}
+	mailer := &fakeVerificationMailer{}
+	service := NewRequestVerificationService(users, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now}, "test-verification-secret")
+	service.randReader = bytes.NewReader(make([]byte, 64))
+	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{
+		UserID: "user-1",
+		Type:   "email",
+		Target: "user@example.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repo.createCalls != 1 {
+		t.Fatal("expected verification created")
+	}
+	stored := repo.created.CodeHash()
+	if stored == "" {
+		t.Fatal("expected stored code hash")
+	}
+	if stored == hashVerificationCode("other-secret", "000000") {
+		t.Fatal("stored hash should not match unrelated secret/code")
+	}
 }

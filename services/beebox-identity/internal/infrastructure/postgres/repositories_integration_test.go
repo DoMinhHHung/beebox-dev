@@ -186,13 +186,17 @@ func TestVerificationAndPasswordResetRepositories(t *testing.T) {
 		t.Fatalf("user: %v", err)
 	}
 
-	v, _ := verification.New("ver-1", id, verification.TypeEmail, "a@b.com", "code-hash", now, now.Add(15*time.Minute))
+	verificationID := "ver-" + now.Format("150405.000000000")
+	v, _ := verification.New(verificationID, id, verification.TypeEmail, "a@b.com", "code-hash", now, now.Add(15*time.Minute))
 	if err := verifications.Create(ctx, v); err != nil {
 		t.Fatalf("create verification: %v", err)
 	}
 	pending, err := verifications.FindPending(ctx, id, verification.TypeEmail, "a@b.com")
 	if err != nil {
 		t.Fatalf("find pending: %v", err)
+	}
+	if pending.ID() != verificationID {
+		t.Fatalf("expected verification id %q, got %q", verificationID, pending.ID())
 	}
 	used, err := pending.Consume(now.Add(time.Minute))
 	if err != nil {
@@ -209,11 +213,12 @@ func TestVerificationAndPasswordResetRepositories(t *testing.T) {
 		t.Fatalf("expected not found after use, got %v", err)
 	}
 
-	reset, _ := passwordreset.New("reset-1", id, "token-hash", now, now.Add(time.Hour))
+	resetID := "reset-" + now.Format("150405.000000000")
+	reset, _ := passwordreset.New(resetID, id, "token-hash", now, now.Add(time.Hour))
 	if err := resets.Create(ctx, reset); err != nil {
 		t.Fatalf("create reset: %v", err)
 	}
-	found, err := resets.FindByID(ctx, "reset-1")
+	found, err := resets.FindByID(ctx, resetID)
 	if err != nil {
 		t.Fatalf("find by id: %v", err)
 	}

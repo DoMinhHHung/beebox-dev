@@ -18,14 +18,14 @@ func TestVerifySuccess(t *testing.T) {
 	}
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	code := "482913"
-	codeHash := hashVerificationCode(code)
+	codeHash := hashVerificationCode("test-verification-secret", code)
 	pending, err := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", codeHash, now.Add(-time.Minute), now.Add(14*time.Minute))
 	if err != nil {
 		t.Fatalf("verification: %v", err)
 	}
 
 	repo := &fakeVerificationRepository{findValue: pending}
-	service := NewVerifyService(repo, &fakeClock{now: now})
+	service := NewVerifyService(repo, &fakeClock{now: now}, "test-verification-secret")
 
 	result, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
@@ -48,7 +48,7 @@ func TestVerifySuccess(t *testing.T) {
 }
 
 func TestVerifyValidation(t *testing.T) {
-	service := NewVerifyService(&fakeVerificationRepository{}, &fakeClock{now: time.Now().UTC()})
+	service := NewVerifyService(&fakeVerificationRepository{}, &fakeClock{now: time.Now().UTC()}, "test-verification-secret")
 	cases := []VerifyInput{
 		{UserID: "", Type: "email", Target: "a@b.com", Code: "123456"},
 		{UserID: "user-1", Type: "oauth", Target: "a@b.com", Code: "123456"},
@@ -65,7 +65,7 @@ func TestVerifyValidation(t *testing.T) {
 
 func TestVerifyNotFound(t *testing.T) {
 	repo := &fakeVerificationRepository{findErr: ErrNotFound}
-	service := NewVerifyService(repo, &fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)})
+	service := NewVerifyService(repo, &fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}, "test-verification-secret")
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
 		Type:   "email",
@@ -80,9 +80,9 @@ func TestVerifyNotFound(t *testing.T) {
 func TestVerifyInvalidCode(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
-	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode("111111"), now.Add(-time.Minute), now.Add(14*time.Minute))
+	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode("test-verification-secret", "111111"), now.Add(-time.Minute), now.Add(14*time.Minute))
 	repo := &fakeVerificationRepository{findValue: pending}
-	service := NewVerifyService(repo, &fakeClock{now: now})
+	service := NewVerifyService(repo, &fakeClock{now: now}, "test-verification-secret")
 
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
@@ -102,9 +102,9 @@ func TestVerifyExpired(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	created := time.Date(2026, time.January, 1, 10, 0, 0, 0, time.UTC)
 	expires := created.Add(15 * time.Minute)
-	pending, _ := verification.New("ver-1", userID, verification.TypePhone, "+1555", hashVerificationCode("123456"), created, expires)
+	pending, _ := verification.New("ver-1", userID, verification.TypePhone, "+1555", hashVerificationCode("test-verification-secret", "123456"), created, expires)
 	repo := &fakeVerificationRepository{findValue: pending}
-	service := NewVerifyService(repo, &fakeClock{now: expires})
+	service := NewVerifyService(repo, &fakeClock{now: expires}, "test-verification-secret")
 
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
@@ -124,13 +124,13 @@ func TestVerifyAlreadyUsed(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	created := time.Date(2026, time.January, 1, 10, 0, 0, 0, time.UTC)
 	expires := created.Add(15 * time.Minute)
-	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "a@b.com", hashVerificationCode("123456"), created, expires)
+	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "a@b.com", hashVerificationCode("test-verification-secret", "123456"), created, expires)
 	used, err := pending.Consume(created.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("consume: %v", err)
 	}
 	repo := &fakeVerificationRepository{findValue: used}
-	service := NewVerifyService(repo, &fakeClock{now: created.Add(2 * time.Minute)})
+	service := NewVerifyService(repo, &fakeClock{now: created.Add(2 * time.Minute)}, "test-verification-secret")
 
 	_, err = service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
@@ -145,7 +145,7 @@ func TestVerifyAlreadyUsed(t *testing.T) {
 
 func TestVerifyRepositoryFindFailure(t *testing.T) {
 	repo := &fakeVerificationRepository{findErr: errors.New("db")}
-	service := NewVerifyService(repo, &fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)})
+	service := NewVerifyService(repo, &fakeClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}, "test-verification-secret")
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
 		Type:   "email",
@@ -161,9 +161,9 @@ func TestVerifyMarkUsedFailure(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	code := "482913"
-	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode(code), now.Add(-time.Minute), now.Add(14*time.Minute))
+	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode("test-verification-secret", code), now.Add(-time.Minute), now.Add(14*time.Minute))
 	repo := &fakeVerificationRepository{findValue: pending, markUsedErr: errors.New("write fail")}
-	service := NewVerifyService(repo, &fakeClock{now: now})
+	service := NewVerifyService(repo, &fakeClock{now: now}, "test-verification-secret")
 
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",
@@ -180,9 +180,9 @@ func TestVerifyMarkUsedAlreadyConsumed(t *testing.T) {
 	userID, _ := identity.NewIdentifier("user-1")
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	code := "482913"
-	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode(code), now.Add(-time.Minute), now.Add(14*time.Minute))
+	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode("test-verification-secret", code), now.Add(-time.Minute), now.Add(14*time.Minute))
 	repo := &fakeVerificationRepository{findValue: pending, markUsedErr: ErrNotFound}
-	service := NewVerifyService(repo, &fakeClock{now: now})
+	service := NewVerifyService(repo, &fakeClock{now: now}, "test-verification-secret")
 
 	_, err := service.Verify(context.Background(), VerifyInput{
 		UserID: "user-1",

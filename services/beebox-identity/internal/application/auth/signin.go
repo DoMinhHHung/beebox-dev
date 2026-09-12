@@ -18,6 +18,7 @@ import (
 const (
 	defaultSessionTTL = 24 * time.Hour
 	sessionTokenBytes = 32
+	dummyPasswordHash = "$2a$10$dlrjFPMv3PUdjqeCtkJqveVFokWPH5yEHUn2eMdC9Q8DDYfU.4dfq"
 )
 
 type SignInInput struct {
@@ -73,6 +74,7 @@ func (s *SignInService) SignIn(ctx context.Context, input SignInInput) (SignInRe
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrNotFound):
+		_ = s.hasher.Verify(ctx, input.Password, dummyPasswordHash)
 		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
 	case err != nil:
 		return SignInResult{}, translateRepositoryError(err)

@@ -59,8 +59,8 @@ func main() {
 	signIn := auth.NewSignInService(users, credentials, sessions, hasher, clock)
 	revokeSession := auth.NewRevokeSessionService(sessions, clock)
 	authenticateSession := auth.NewAuthenticateSessionService(sessions, clock)
-	requestVerification := auth.NewRequestVerificationService(users, verifications, mailer, sms, clock)
-	verify := auth.NewVerifyService(verifications, clock)
+	requestVerification := auth.NewRequestVerificationService(users, verifications, mailer, sms, clock, cfg.VerificationCodeSecret)
+	verify := auth.NewVerifyService(verifications, clock, cfg.VerificationCodeSecret)
 	requestPasswordReset := auth.NewRequestPasswordResetService(users, passwordResets, mailer, clock)
 	resetPassword := auth.NewResetPasswordService(passwordResets, credentials, sessions, hasher, clock, tx)
 
@@ -76,8 +76,11 @@ func main() {
 	})
 
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: router,
+		Addr:              ":" + cfg.Port,
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	serveErr := make(chan error, 1)

@@ -312,7 +312,7 @@ func TestSignOutSuccess(t *testing.T) {
 
 func TestRequestVerificationSuccess(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	svc := auth.NewRequestVerificationService(&httpFakeUserRepo{findUser: mustHTTPUser(t)}, &httpFakeVerificationRepo{}, httpFakeVerificationMailer{}, httpFakeVerificationSMS{}, &httpFakeClock{now: now})
+	svc := auth.NewRequestVerificationService(&httpFakeUserRepo{findUser: mustHTTPUser(t)}, &httpFakeVerificationRepo{}, httpFakeVerificationMailer{}, httpFakeVerificationSMS{}, &httpFakeClock{now: now}, "test-verification-secret")
 	mux := testRouter(t, Dependencies{RequestVerification: svc})
 
 	rec := postJSON(t, mux, "/auth/verification/request", map[string]string{
@@ -333,7 +333,7 @@ func TestRequestVerificationSuccess(t *testing.T) {
 }
 
 func TestVerifyFailure(t *testing.T) {
-	svc := auth.NewVerifyService(&httpFakeVerificationRepo{findErr: auth.ErrNotFound}, &httpFakeClock{now: time.Now().UTC()})
+	svc := auth.NewVerifyService(&httpFakeVerificationRepo{findErr: auth.ErrNotFound}, &httpFakeClock{now: time.Now().UTC()}, "test-verification-secret")
 	mux := testRouter(t, Dependencies{Verify: svc})
 	rec := postJSON(t, mux, "/auth/verification/verify", map[string]string{
 		"user_id": "user-1",
