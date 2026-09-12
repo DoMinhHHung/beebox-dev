@@ -1,0 +1,441 @@
+openapi: 3.1.0
+info:
+  title: BeeBox Identity API
+  version: 1.0.0
+servers:
+  - url: /
+tags:
+  - name: Health
+  - name: Authentication
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /auth/signup:
+    post:
+      operationId: signUp
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignUpResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/signin:
+    post:
+      operationId: signIn
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/session:
+    get:
+      operationId: getSession
+      tags:
+        - Authentication
+      security:
+        - IdentitySessionBearerAuth: []
+      responses:
+        '200':
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/signout:
+    post:
+      operationId: signOut
+      tags:
+        - Authentication
+      security:
+        - IdentitySessionBearerAuth: []
+      responses:
+        '204':
+          description: Session revoked
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/verification/request:
+    post:
+      operationId: requestVerification
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestVerificationRequest'
+      responses:
+        '200':
+          description: Verification requested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestVerificationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/verification/verify:
+    post:
+      operationId: verifyVerification
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+      responses:
+        '200':
+          description: Verification consumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestPasswordResetRequest'
+      responses:
+        '200':
+          description: Password reset request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestPasswordResetResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/password-reset/reset:
+    post:
+      operationId: resetPassword
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetPasswordResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    IdentitySessionBearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UnauthenticatedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictError:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    DependencyFailureError:
+      description: Downstream dependency failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    SignUpRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+    SignUpResponse:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string
+    SignInRequest:
+      type: object
+      required:
+        - identifier
+        - password
+      properties:
+        identifier:
+          type: string
+        password:
+          type: string
+    SignInResponse:
+      type: object
+      required:
+        - user_id
+        - session_id
+        - expires_at
+      properties:
+        user_id:
+          type: string
+        session_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    SessionResponse:
+      type: object
+      required:
+        - user_id
+        - session_id
+        - organization_id
+      properties:
+        user_id:
+          type: string
+        session_id:
+          type: string
+        organization_id:
+          type: string
+    RequestVerificationRequest:
+      type: object
+      required:
+        - user_id
+        - type
+        - target
+      properties:
+        user_id:
+          type: string
+        type:
+          type: string
+          enum:
+            - email
+            - phone
+        target:
+          type: string
+    RequestVerificationResponse:
+      type: object
+      required:
+        - verification_id
+        - expires_at
+      properties:
+        verification_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    VerifyRequest:
+      type: object
+      required:
+        - user_id
+        - type
+        - target
+        - code
+      properties:
+        user_id:
+          type: string
+        type:
+          type: string
+          enum:
+            - email
+            - phone
+        target:
+          type: string
+        code:
+          type: string
+    VerifyResponse:
+      type: object
+      required:
+        - verification_id
+        - user_id
+        - type
+        - target
+      properties:
+        verification_id:
+          type: string
+        user_id:
+          type: string
+        type:
+          type: string
+          enum:
+            - email
+            - phone
+        target:
+          type: string
+    RequestPasswordResetRequest:
+      type: object
+      required:
+        - identifier
+      properties:
+        identifier:
+          type: string
+    RequestPasswordResetResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - accepted
+    ResetPasswordRequest:
+      type: object
+      required:
+        - reset_id
+        - token
+        - new_password
+      properties:
+        reset_id:
+          type: string
+        token:
+          type: string
+        new_password:
+          type: string
+    ResetPasswordResponse:
+      type: object
+      required:
+        - user_id
+      properties:
+        user_id:
+          type: string

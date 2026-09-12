@@ -1,0 +1,182 @@
+openapi: 3.1.0
+info:
+  title: BeeBox Runtime API
+  version: 1.0.0
+servers:
+  - url: /
+tags:
+  - name: Health
+  - name: Project
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /v1/p/{project_id}/auth/session:
+    get:
+      operationId: getProjectAuthSession
+      tags:
+        - Project
+      security:
+        - ProjectCredentialHeader: []
+          RuntimeUserSessionBearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+      responses:
+        '200':
+          description: Project-authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectSessionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/p/{project_id}/_ready:
+    get:
+      operationId: getProjectReady
+      tags:
+        - Project
+      security:
+        - ProjectCredentialHeader: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectID'
+      responses:
+        '200':
+          description: Project ready snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReadyResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    ProjectCredentialHeader:
+      type: apiKey
+      in: header
+      name: X-BeeBox-Project-Credential
+    RuntimeUserSessionBearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ProjectID:
+      name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    UnauthenticatedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    DependencyFailureError:
+      description: Downstream dependency failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    ProjectSessionResponse:
+      type: object
+      required:
+        - project_id
+        - user_id
+        - session_id
+      properties:
+        project_id:
+          type: string
+        user_id:
+          type: string
+        session_id:
+          type: string
+        organization_id:
+          type: string
+    ProjectReadyResponse:
+      type: object
+      required:
+        - project_id
+        - credential_id
+        - applied_version
+        - module_id
+        - capability_id
+      properties:
+        project_id:
+          type: string
+        credential_id:
+          type: string
+        applied_version:
+          type: integer
+        module_id:
+          type: string
+        capability_id:
+          type: string

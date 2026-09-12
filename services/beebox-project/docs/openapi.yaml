@@ -1,0 +1,1020 @@
+openapi: 3.1.0
+info:
+  title: BeeBox Project API
+  version: 1.0.0
+servers:
+  - url: /
+tags:
+  - name: Health
+  - name: Projects
+  - name: Configuration
+  - name: Catalog
+  - name: Capabilities
+  - name: Credentials
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /v1/projects:
+    post:
+      operationId: createProject
+      tags:
+        - Projects
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    get:
+      operationId: getProject
+      tags:
+        - Projects
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Project returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: transitionProject
+      tags:
+        - Projects
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionProjectRequest'
+      responses:
+        '200':
+          description: Project transitioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: archiveProject
+      tags:
+        - Projects
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Project archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/configuration:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    put:
+      operationId: createOrUpdateProjectConfiguration
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigurationRequest'
+      responses:
+        '201':
+          description: Configuration version created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      operationId: getCurrentProjectConfiguration
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Latest configuration version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/configuration/versions/{version}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/ConfigurationVersion'
+    get:
+      operationId: getProjectConfigurationVersion
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Configuration version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: transitionProjectConfigurationVersion
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionConfigurationRequest'
+      responses:
+        '200':
+          description: Configuration version transitioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/configuration/versions/{version}/rollout:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/ConfigurationVersion'
+    post:
+      operationId: rolloutProjectConfigurationVersion
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Rollout state updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RolloutResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/configuration/versions/{version}/apply:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/ConfigurationVersion'
+    post:
+      operationId: applyProjectConfigurationVersion
+      tags:
+        - Configuration
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Configuration applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigurationResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /internal/v1/projects/{id}/applied-configuration:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    get:
+      operationId: getAppliedProjectConfiguration
+      tags:
+        - Configuration
+      security:
+        - InternalServiceBearerAuth: []
+      responses:
+        '200':
+          description: Applied configuration snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppliedConfigurationResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/modules:
+    get:
+      operationId: listCatalogModules
+      tags:
+        - Catalog
+      responses:
+        '200':
+          description: Catalog modules
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModuleListResponse'
+  /v1/modules/{module}:
+    parameters:
+      - $ref: '#/components/parameters/ModuleID'
+    get:
+      operationId: getCatalogModule
+      tags:
+        - Catalog
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            default: v1
+      responses:
+        '200':
+          description: Catalog module with capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogModuleResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/modules/{module}/capabilities/{capability}:
+    parameters:
+      - $ref: '#/components/parameters/ModuleID'
+      - $ref: '#/components/parameters/CapabilityID'
+    get:
+      operationId: getCatalogCapability
+      tags:
+        - Catalog
+      parameters:
+        - name: version
+          in: query
+          required: false
+          schema:
+            type: string
+            default: v1
+      responses:
+        '200':
+          description: Catalog capability
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogCapabilityResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+  /v1/projects/{id}/capabilities:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    get:
+      operationId: listProjectCapabilities
+      tags:
+        - Capabilities
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '200':
+          description: Enabled capabilities for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/capabilities/{module}/{capability}:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+      - $ref: '#/components/parameters/ModuleID'
+      - $ref: '#/components/parameters/CapabilityID'
+    put:
+      operationId: enableProjectCapability
+      tags:
+        - Capabilities
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnablementRequest'
+      responses:
+        '201':
+          description: Capability enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnablementResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      operationId: updateProjectCapabilityFields
+      tags:
+        - Capabilities
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnablementPatchRequest'
+      responses:
+        '200':
+          description: Capability fields updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnablementResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      operationId: disableProjectCapability
+      tags:
+        - Capabilities
+      security:
+        - DeveloperSessionBearerAuth: []
+      responses:
+        '204':
+          description: Capability disabled
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /v1/projects/{id}/credentials/public:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    post:
+      operationId: issueProjectPublicCredential
+      tags:
+        - Credentials
+      security:
+        - DeveloperSessionBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssuePublicCredentialRequest'
+      responses:
+        '201':
+          description: Public credential issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuePublicCredentialResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /internal/v1/projects/{id}/credentials/verify:
+    parameters:
+      - $ref: '#/components/parameters/ProjectID'
+    post:
+      operationId: verifyProjectPublicCredential
+      tags:
+        - Credentials
+      security:
+        - InternalServiceBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPublicCredentialRequest'
+      responses:
+        '200':
+          description: Public credential verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyPublicCredentialResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthenticatedError'
+        '502':
+          $ref: '#/components/responses/DependencyFailureError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    DeveloperSessionBearerAuth:
+      type: http
+      scheme: bearer
+    InternalServiceBearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ProjectID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ModuleID:
+      name: module
+      in: path
+      required: true
+      schema:
+        type: string
+    CapabilityID:
+      name: capability
+      in: path
+      required: true
+      schema:
+        type: string
+    ConfigurationVersion:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    UnauthenticatedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ConflictError:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    DependencyFailureError:
+      description: Downstream dependency failure
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: Internal error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+    ErrorBody:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          const: ok
+    CreateProjectRequest:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+    ProjectStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - SUSPENDED
+        - ARCHIVED
+    ProjectResponse:
+      type: object
+      required:
+        - id
+        - organization_id
+        - status
+      properties:
+        id:
+          type: string
+        organization_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+    TransitionProjectRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/ProjectStatus'
+    DataFieldReference:
+      type: object
+      required:
+        - module_id
+        - capability_id
+        - capability_version
+        - id
+        - version
+      properties:
+        module_id:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
+        id:
+          type: string
+        version:
+          type: string
+    ConfigurationStatus:
+      type: string
+      enum:
+        - DRAFT
+        - VALIDATED
+        - PUBLISHED
+        - APPLIED
+    ConfigurationRequest:
+      type: object
+      required:
+        - module_id
+        - module_version
+        - capability_id
+        - capability_version
+      properties:
+        module_id:
+          type: string
+        module_version:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+    TransitionConfigurationRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/ConfigurationStatus'
+    ConfigurationResponse:
+      type: object
+      required:
+        - project_id
+        - version
+        - module_id
+        - module_version
+        - capability_id
+        - capability_version
+        - data_fields
+        - status
+      properties:
+        project_id:
+          type: string
+        version:
+          type: integer
+        module_id:
+          type: string
+        module_version:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+        status:
+          $ref: '#/components/schemas/ConfigurationStatus'
+    RolloutResponse:
+      type: object
+      required:
+        - project_id
+        - desired_version
+        - applied_version
+      properties:
+        project_id:
+          type: string
+        desired_version:
+          type: integer
+        applied_version:
+          type: integer
+    AppliedConfigurationResponse:
+      type: object
+      required:
+        - project_id
+        - project_status
+        - applied_version
+        - module_id
+        - module_version
+        - capability_id
+        - capability_version
+        - data_fields
+      properties:
+        project_id:
+          type: string
+        project_status:
+          $ref: '#/components/schemas/ProjectStatus'
+        applied_version:
+          type: integer
+        module_id:
+          type: string
+        module_version:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+    ModuleSummary:
+      type: object
+      required:
+        - id
+        - version
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+    ModuleListResponse:
+      type: object
+      required:
+        - modules
+      properties:
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleSummary'
+    CatalogModuleResponse:
+      type: object
+      required:
+        - id
+        - version
+        - capabilities
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CapabilitySummary'
+    CapabilitySummary:
+      type: object
+      required:
+        - id
+        - version
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+    CatalogCapabilityResponse:
+      type: object
+      required:
+        - module_id
+        - id
+        - version
+      properties:
+        module_id:
+          type: string
+        id:
+          type: string
+        version:
+          type: string
+    CapabilityListResponse:
+      type: object
+      required:
+        - capabilities
+      properties:
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnablementResponse'
+    EnablementRequest:
+      type: object
+      required:
+        - module_version
+        - capability_version
+      properties:
+        module_version:
+          type: string
+        capability_version:
+          type: string
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+    EnablementPatchRequest:
+      type: object
+      required:
+        - data_fields
+      properties:
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+    EnablementResponse:
+      type: object
+      required:
+        - project_id
+        - module_id
+        - module_version
+        - capability_id
+        - capability_version
+        - data_fields
+      properties:
+        project_id:
+          type: string
+        module_id:
+          type: string
+        module_version:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
+        data_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataFieldReference'
+    CredentialKind:
+      type: string
+      enum:
+        - PUBLIC
+        - SECRET
+    CredentialStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - REVOKED
+        - EXPIRED
+    IssuePublicCredentialRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+    IssuePublicCredentialResponse:
+      type: object
+      required:
+        - project_id
+        - id
+        - name
+        - kind
+        - status
+        - credential
+      properties:
+        project_id:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/CredentialKind'
+        status:
+          $ref: '#/components/schemas/CredentialStatus'
+        credential:
+          type: string
+    VerifyPublicCredentialRequest:
+      type: object
+      required:
+        - credential
+      properties:
+        credential:
+          type: string
+    VerifyPublicCredentialResponse:
+      type: object
+      required:
+        - project_id
+        - credential_id
+        - kind
+      properties:
+        project_id:
+          type: string
+        credential_id:
+          type: string
+        kind:
+          $ref: '#/components/schemas/CredentialKind'
