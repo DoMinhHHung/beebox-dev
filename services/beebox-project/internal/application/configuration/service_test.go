@@ -10,6 +10,7 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/catalog"
 	domainconfiguration "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/configuration"
+	domainproject "github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/domain/project"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/infrastructure/memory"
 )
 
@@ -293,5 +294,133 @@ func TestApply_RepairsAppliedVersionWhenStatusAlreadyApplied(t *testing.T) {
 	}
 	if state.AppliedVersion != version.Number {
 		t.Fatalf("applied_version %d", state.AppliedVersion)
+	}
+}
+
+func activateProject(t *testing.T, projects *project.Service, projectID string) {
+	t.Helper()
+	if _, err := projects.Transition(context.Background(), projectID, domainproject.StatusActive); err != nil {
+		t.Fatalf("activate project: %v", err)
+	}
+}
+
+func TestGetAppliedConfiguration_ReturnsAppliedSnapshot(t *testing.T) {
+	svc, projects := newService(t)
+	ctx := context.Background()
+	activateProject(t, projects, "project-1")
+	version := publishVersion(t, svc, "project-1", "organization-1")
+	applied, state, err := svc.Apply(ctx, "project-1", "organization-1", version.Number)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	// create a newer unpublished version so latest != applied
+	if _, err := svc.CreateOrUpdate(ctx, "project-1", "organization-1", validConfiguration(t, "project-1")); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := svc.GetAppliedConfiguration(ctx, "project-1")
+	if err != nil {
+		t.Fatalf("get applied: %v", err)
+	}
+	if snapshot.AppliedVersion != state.AppliedVersion || snapshot.AppliedVersion != applied.Number {
+		t.Fatalf("applied version mismatch: snapshot=%d state=%d applied=%d", snapshot.AppliedVersion, state.AppliedVersion, applied.Number)
+	}
+	if snapshot.ProjectStatus != domainproject.StatusActive {
+		t.Fatalf("status %s", snapshot.ProjectStatus)
+	}
+	if snapshot.ModuleID != "auth" || snapshot.CapabilityID != "login" {
+		t.Fatalf("unexpected module/capability %#v", snapshot)
+	}
+}
+
+func TestGetAppliedConfiguration_IgnoresDesiredAndLatest(t *testing.T) {
+	svc, projects := newService(t)
+	ctx := context.Background()
+	activateProject(t, projects, "project-1")
+	v1 := publishVersion(t, svc, "project-1", "organization-1")
+	if _, _, err := svc.Apply(ctx, "project-1", "organization-1", v1.Number); err != nil {
+		t.Fatal(err)
+	}
+	v2 := publishVersion(t, svc, "project-1", "organization-1")
+	if _, err := svc.Rollout(ctx, "project-1", "organization-1", v2.Number); err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := svc.GetAppliedConfiguration(ctx, "project-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.AppliedVersion != v1.Number {
+		t.Fatalf("expected applied %d, got %d", v1.Number, snapshot.AppliedVersion)
+	}
+}
+
+func TestGetAppliedConfiguration_NotFoundWhenMissingOrZero(t *testing.T) {
+	svc, projects := newService(t)
+	ctx := context.Background()
+	activateProject(t, projects, "project-1")
+
+	_, err := svc.GetAppliedConfiguration(ctx, "project-1")
+	if apperror.CodeOf(err) != apperror.CodeNotFound {
+		t.Fatalf("expected not found without rollout, got %v", err)
+	}
+
+	version := publishVersion(t, svc, "project-1", "organization-1")
+	if _, err := svc.Rollout(ctx, "project-1", "organization-1", version.Number); err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.GetAppliedConfiguration(ctx, "project-1")
+	if apperror.CodeOf(err) != apperror.CodeNotFound {
+		t.Fatalf("expected not found when applied_version=0, got %v", err)
+	}
+}
+
+func TestGetAppliedConfiguration_RejectsInactiveProject(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+	if _, _, err := svc.Apply(ctx, "project-1", "organization-1", version.Number); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.GetAppliedConfiguration(ctx, "project-1")
+	if apperror.CodeOf(err) != apperror.CodeForbidden {
+		t.Fatalf("expected forbidden for draft project, got %v", err)
+	}
+}
+
+func TestGetAppliedConfiguration_InconsistentAppliedVersion(t *testing.T) {
+	projectsRepo := memory.NewProjectRepository()
+	projects := project.NewService(projectsRepo)
+	if _, err := projects.Create(context.Background(), "project-1", "organization-1"); err != nil {
+		t.Fatal(err)
+	}
+	activateProject(t, projects, "project-1")
+	cat, err := catalog.New(
+		[]catalog.ModuleDefinition{{ID: "auth", Version: "v1"}},
+		[]catalog.CapabilityDefinition{{ModuleID: "auth", ID: "login", Version: "v1"}},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner := memory.NewConfigurationRepository()
+	svc := applicationconfiguration.NewService(inner, projects, cat)
+	ctx := context.Background()
+	version := publishVersion(t, svc, "project-1", "organization-1")
+	if _, _, err := svc.Apply(ctx, "project-1", "organization-1", version.Number); err != nil {
+		t.Fatal(err)
+	}
+	// Corrupt applied_version to point at missing version
+	if err := inner.SaveRollout(ctx, domainconfiguration.RolloutState{
+		ProjectID:      "project-1",
+		DesiredVersion: version.Number,
+		AppliedVersion: 99,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.GetAppliedConfiguration(ctx, "project-1")
+	if apperror.CodeOf(err) != apperror.CodeInternal {
+		t.Fatalf("expected internal for inconsistent applied version, got %v", err)
 	}
 }

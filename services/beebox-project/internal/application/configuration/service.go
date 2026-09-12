@@ -21,7 +21,19 @@ type Repository interface {
 }
 
 type ProjectAuthorizer interface {
+	Get(context.Context, string) (domainproject.Project, error)
 	GetAuthorized(context.Context, string, string) (domainproject.Project, error)
+}
+
+type AppliedConfiguration struct {
+	ProjectID         string
+	ProjectStatus     domainproject.Status
+	AppliedVersion    int
+	ModuleID          string
+	ModuleVersion     string
+	CapabilityID      string
+	CapabilityVersion string
+	DataFields        []domainconfiguration.DataFieldReference
 }
 
 type Service struct {
@@ -212,6 +224,51 @@ func (s *Service) Apply(ctx context.Context, projectID, organizationID string, n
 	}
 
 	return applied, state, nil
+}
+
+func (s *Service) GetAppliedConfiguration(ctx context.Context, projectID string) (AppliedConfiguration, error) {
+	if projectID == "" {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeValidation, "project id is required")
+	}
+
+	project, err := s.projects.Get(ctx, projectID)
+	if err != nil {
+		return AppliedConfiguration{}, err
+	}
+	if project.Status != domainproject.StatusActive {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeForbidden, "project is not active")
+	}
+
+	state, err := s.repo.GetRollout(ctx, projectID)
+	if errors.Is(err, ErrRolloutNotFound) {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeNotFound, "configuration not applied")
+	}
+	if err != nil {
+		return AppliedConfiguration{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load rollout", err)
+	}
+	if state.AppliedVersion < 1 {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeNotFound, "configuration not applied")
+	}
+
+	version, err := s.repo.GetVersion(ctx, projectID, state.AppliedVersion)
+	if errors.Is(err, ErrVersionNotFound) {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeInternal, "applied configuration is inconsistent")
+	}
+	if err != nil {
+		return AppliedConfiguration{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load configuration version", err)
+	}
+
+	fields := append([]domainconfiguration.DataFieldReference(nil), version.Configuration.DataFields...)
+	return AppliedConfiguration{
+		ProjectID:         project.ID,
+		ProjectStatus:     project.Status,
+		AppliedVersion:    state.AppliedVersion,
+		ModuleID:          version.Configuration.ModuleID,
+		ModuleVersion:     version.Configuration.ModuleVersion,
+		CapabilityID:      version.Configuration.CapabilityID,
+		CapabilityVersion: version.Configuration.CapabilityVersion,
+		DataFields:        fields,
+	}, nil
 }
 
 func (s *Service) authorize(ctx context.Context, projectID, organizationID string) (domainproject.Project, error) {

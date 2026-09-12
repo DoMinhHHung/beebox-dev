@@ -11,12 +11,12 @@ import (
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-project/internal/application/project"
 )
 
-func NewRouter(projects *project.Service, authenticators ...auth.Authenticator) *http.ServeMux {
-	return newRouter(projects, nil, nil, authenticators...)
+func NewRouter(projects *project.Service, internalToken string, authenticators ...auth.Authenticator) *http.ServeMux {
+	return newRouter(projects, nil, nil, internalToken, authenticators...)
 }
 
-func NewRouterWithConfiguration(projects *project.Service, configurations *applicationconfiguration.Service, authenticator auth.Authenticator) *http.ServeMux {
-	return newRouter(projects, configurations, nil, authenticator)
+func NewRouterWithConfiguration(projects *project.Service, configurations *applicationconfiguration.Service, authenticator auth.Authenticator, internalToken string) *http.ServeMux {
+	return newRouter(projects, configurations, nil, internalToken, authenticator)
 }
 
 func NewRouterWithServices(
@@ -24,14 +24,16 @@ func NewRouterWithServices(
 	configurations *applicationconfiguration.Service,
 	enablements *applicationenablement.Service,
 	authenticator auth.Authenticator,
+	internalToken string,
 ) *http.ServeMux {
-	return newRouter(projects, configurations, enablements, authenticator)
+	return newRouter(projects, configurations, enablements, internalToken, authenticator)
 }
 
 func newRouter(
 	projects *project.Service,
 	configurations *applicationconfiguration.Service,
 	enablements *applicationenablement.Service,
+	internalToken string,
 	authenticators ...auth.Authenticator,
 ) *http.ServeMux {
 	var authenticator auth.Authenticator = unauthenticatedAuthenticator{}
@@ -55,6 +57,7 @@ func newRouter(
 		mux.HandleFunc("PATCH /v1/projects/{id}/configuration/versions/{version}", requireAuthentication(authenticator, configurationHandler.transition))
 		mux.HandleFunc("POST /v1/projects/{id}/configuration/versions/{version}/rollout", requireAuthentication(authenticator, configurationHandler.rollout))
 		mux.HandleFunc("POST /v1/projects/{id}/configuration/versions/{version}/apply", requireAuthentication(authenticator, configurationHandler.apply))
+		mux.HandleFunc("GET /internal/v1/projects/{id}/applied-configuration", requireInternalToken(internalToken, configurationHandler.appliedConfiguration))
 	}
 
 	if enablements != nil {

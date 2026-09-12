@@ -42,7 +42,7 @@ func main() {
 	enablementService := applicationenablement.NewService(enablementRepo, service, beeCatalog)
 
 	identityClient := identity.NewClient(cfg.IdentityURL, nil)
-	router := interfaceshttp.NewRouterWithServices(service, configurationService, enablementService, identityClient)
+	router := interfaceshttp.NewRouterWithServices(service, configurationService, enablementService, identityClient, cfg.InternalToken)
 
 	addr := ":" + cfg.Port
 	log.Printf("beebox-project: listening on %s", addr)

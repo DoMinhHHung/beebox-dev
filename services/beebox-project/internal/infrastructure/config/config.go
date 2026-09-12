@@ -8,17 +8,19 @@ import (
 )
 
 var (
-	ErrMissingDatabaseURL = errors.New("DATABASE_URL is required")
-	ErrInvalidPort        = errors.New("PORT must be a valid port number")
-	ErrInvalidIdentityURL = errors.New("IDENTITY_URL must use https unless host is localhost")
+	ErrMissingDatabaseURL   = errors.New("DATABASE_URL is required")
+	ErrInvalidPort          = errors.New("PORT must be a valid port number")
+	ErrInvalidIdentityURL   = errors.New("IDENTITY_URL must use https unless host is localhost")
+	ErrMissingInternalToken = errors.New("BEEBOX_INTERNAL_TOKEN is required")
 )
 
 type LookupFunc func(key string) (string, bool)
 
 type Config struct {
-	DatabaseURL string
-	Port        string
-	IdentityURL string
+	DatabaseURL   string
+	Port          string
+	IdentityURL   string
+	InternalToken string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -43,10 +45,16 @@ func Load(lookup LookupFunc) (Config, error) {
 		return Config{}, err
 	}
 
+	internalToken, ok := lookup("BEEBOX_INTERNAL_TOKEN")
+	if !ok || strings.TrimSpace(internalToken) == "" {
+		return Config{}, ErrMissingInternalToken
+	}
+
 	return Config{
-		DatabaseURL: databaseURL,
-		Port:        port,
-		IdentityURL: identityURL,
+		DatabaseURL:   databaseURL,
+		Port:          port,
+		IdentityURL:   identityURL,
+		InternalToken: strings.TrimSpace(internalToken),
 	}, nil
 }
 
