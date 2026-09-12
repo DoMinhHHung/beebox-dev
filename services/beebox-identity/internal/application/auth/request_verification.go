@@ -34,6 +34,7 @@ type RequestVerificationResult struct {
 }
 
 type RequestVerificationService struct {
+	users         UserRepository
 	verifications VerificationRepository
 	email         VerificationMailer
 	sms           VerificationSMSSender
@@ -43,12 +44,14 @@ type RequestVerificationService struct {
 }
 
 func NewRequestVerificationService(
+	users UserRepository,
 	verifications VerificationRepository,
 	email VerificationMailer,
 	sms VerificationSMSSender,
 	clock Clock,
 ) *RequestVerificationService {
 	return &RequestVerificationService{
+		users:         users,
 		verifications: verifications,
 		email:         email,
 		sms:           sms,
@@ -70,6 +73,15 @@ func (s *RequestVerificationService) RequestVerification(ctx context.Context, in
 	target := strings.TrimSpace(input.Target)
 	if target == "" {
 		return RequestVerificationResult{}, apperror.New(apperror.CodeValidation, "invalid request verification input")
+	}
+
+	_, err = s.users.FindByIdentifier(ctx, userID)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrNotFound):
+		return s.publicSuccess(ctx)
+	case err != nil:
+		return RequestVerificationResult{}, translateRepositoryError(err)
 	}
 
 	code, err := generateNumericCode(s.randReader, verificationCodeDigits)
@@ -102,24 +114,30 @@ func (s *RequestVerificationService) RequestVerification(ctx context.Context, in
 	}
 	switch vtype {
 	case verification.TypeEmail:
-		if s.email == nil {
-			return RequestVerificationResult{}, apperror.New(apperror.CodeDependencyFailure, "verification delivery failed")
-		}
-		if err := s.email.SendVerificationEmail(ctx, message); err != nil {
-			return RequestVerificationResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "verification delivery failed", err)
+		if s.email != nil {
+			_ = s.email.SendVerificationEmail(ctx, message)
 		}
 	case verification.TypePhone:
-		if s.sms == nil {
-			return RequestVerificationResult{}, apperror.New(apperror.CodeDependencyFailure, "verification delivery failed")
-		}
-		if err := s.sms.SendVerificationSMS(ctx, message); err != nil {
-			return RequestVerificationResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "verification delivery failed", err)
+		if s.sms != nil {
+			_ = s.sms.SendVerificationSMS(ctx, message)
 		}
 	}
 
 	return RequestVerificationResult{
 		VerificationID: v.ID(),
 		ExpiresAt:      v.ExpiresAt(),
+	}, nil
+}
+
+func (s *RequestVerificationService) publicSuccess(ctx context.Context) (RequestVerificationResult, error) {
+	id, err := generateVerificationID(s.randReader)
+	if err != nil {
+		return RequestVerificationResult{}, apperror.Wrap(apperror.CodeInternal, "verification id generation failed", err)
+	}
+	now := s.clock.Now()
+	return RequestVerificationResult{
+		VerificationID: id,
+		ExpiresAt:      now.Add(s.ttl),
 	}, nil
 }
 

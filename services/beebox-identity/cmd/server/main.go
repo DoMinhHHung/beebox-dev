@@ -49,13 +49,17 @@ func main() {
 		Password: cfg.SMTPPass,
 		From:     cfg.SMTPFrom,
 	})
-	sms := delivery.NewLoggingSMSSender()
+	sms := delivery.NewTwilioSMSSender(delivery.TwilioSMSConfig{
+		AccountSID: cfg.TwilioAccountSID,
+		AuthToken:  cfg.TwilioAuthToken,
+		From:       cfg.TwilioFromNumber,
+	})
 
 	signUp := auth.NewSignUpService(users, credentials, hasher, clock, tx)
 	signIn := auth.NewSignInService(users, credentials, sessions, hasher, clock)
 	revokeSession := auth.NewRevokeSessionService(sessions, clock)
 	authenticateSession := auth.NewAuthenticateSessionService(sessions, clock)
-	requestVerification := auth.NewRequestVerificationService(verifications, mailer, sms, clock)
+	requestVerification := auth.NewRequestVerificationService(users, verifications, mailer, sms, clock)
 	verify := auth.NewVerifyService(verifications, clock)
 	requestPasswordReset := auth.NewRequestPasswordResetService(users, passwordResets, mailer, clock)
 	resetPassword := auth.NewResetPasswordService(passwordResets, credentials, sessions, hasher, clock, tx)

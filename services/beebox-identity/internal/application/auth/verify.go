@@ -82,6 +82,9 @@ func (s *VerifyService) Verify(ctx context.Context, input VerifyInput) (VerifyRe
 	}
 
 	if err := s.verifications.MarkUsed(ctx, consumed); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return VerifyResult{}, apperror.New(apperror.CodeConflict, "verification already used")
+		}
 		return VerifyResult{}, translateRepositoryError(err)
 	}
 

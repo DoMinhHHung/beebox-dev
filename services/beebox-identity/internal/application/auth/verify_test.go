@@ -175,3 +175,22 @@ func TestVerifyMarkUsedFailure(t *testing.T) {
 		t.Fatalf("expected dependency failure, got %v", err)
 	}
 }
+
+func TestVerifyMarkUsedAlreadyConsumed(t *testing.T) {
+	userID, _ := identity.NewIdentifier("user-1")
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	code := "482913"
+	pending, _ := verification.New("ver-1", userID, verification.TypeEmail, "user@example.com", hashVerificationCode(code), now.Add(-time.Minute), now.Add(14*time.Minute))
+	repo := &fakeVerificationRepository{findValue: pending, markUsedErr: ErrNotFound}
+	service := NewVerifyService(repo, &fakeClock{now: now})
+
+	_, err := service.Verify(context.Background(), VerifyInput{
+		UserID: "user-1",
+		Type:   "email",
+		Target: "user@example.com",
+		Code:   code,
+	})
+	if !apperror.IsCode(err, apperror.CodeConflict) {
+		t.Fatalf("expected conflict for concurrent consume, got %v", err)
+	}
+}

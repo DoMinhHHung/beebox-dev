@@ -116,10 +116,16 @@ func (s *ResetPasswordService) ResetPassword(ctx context.Context, input ResetPas
 
 	if s.tx != nil {
 		if err := s.tx.WithinTransaction(ctx, persist); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return ResetPasswordResult{}, apperror.New(apperror.CodeConflict, "password reset already used")
+			}
 			return ResetPasswordResult{}, translateRepositoryError(err)
 		}
 	} else {
 		if err := persist(ctx); err != nil {
+			if errors.Is(err, ErrNotFound) {
+				return ResetPasswordResult{}, apperror.New(apperror.CodeConflict, "password reset already used")
+			}
 			return ResetPasswordResult{}, translateRepositoryError(err)
 		}
 	}

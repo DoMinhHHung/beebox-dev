@@ -201,6 +201,9 @@ func TestVerificationAndPasswordResetRepositories(t *testing.T) {
 	if err := verifications.MarkUsed(ctx, used); err != nil {
 		t.Fatalf("mark used: %v", err)
 	}
+	if err := verifications.MarkUsed(ctx, used); err != auth.ErrNotFound {
+		t.Fatalf("expected second mark used to fail, got %v", err)
+	}
 	_, err = verifications.FindPending(ctx, id, verification.TypeEmail, "a@b.com")
 	if err != auth.ErrNotFound {
 		t.Fatalf("expected not found after use, got %v", err)
@@ -227,6 +230,9 @@ func TestVerificationAndPasswordResetRepositories(t *testing.T) {
 	}
 	if err := resets.MarkUsed(ctx, consumed); err != nil {
 		t.Fatalf("mark used reset: %v", err)
+	}
+	if err := resets.MarkUsed(ctx, consumed); err != auth.ErrNotFound {
+		t.Fatalf("expected second mark used reset to fail, got %v", err)
 	}
 	_, err = resets.FindPending(ctx, id)
 	if err != auth.ErrNotFound {

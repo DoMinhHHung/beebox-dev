@@ -89,7 +89,7 @@ func (r *PasswordResetRepository) MarkUsed(ctx context.Context, value passwordre
 		return errors.New("password reset is not used")
 	}
 	tag, err := q.Exec(ctx,
-		`UPDATE password_resets SET used_at = $2 WHERE id = $1`,
+		`UPDATE password_resets SET used_at = $2 WHERE id = $1 AND used_at IS NULL`,
 		value.ID(), usedAt.UTC(),
 	)
 	if err != nil {

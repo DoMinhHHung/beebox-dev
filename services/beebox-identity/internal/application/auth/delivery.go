@@ -19,6 +19,7 @@ type VerificationSMSSender interface {
 
 type PasswordResetDeliveryMessage struct {
 	UserID    string
+	Target    string
 	ResetID   string
 	Token     string
 	ExpiresAt string

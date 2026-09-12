@@ -13,13 +13,16 @@ var (
 type LookupFunc func(key string) (string, bool)
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	SMTPHost    string
-	SMTPPort    int
-	SMTPUser    string
-	SMTPPass    string
-	SMTPFrom    string
+	Port             string
+	DatabaseURL      string
+	SMTPHost         string
+	SMTPPort         int
+	SMTPUser         string
+	SMTPPass         string
+	SMTPFrom         string
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFromNumber string
 }
 
 func Load(lookup LookupFunc) (Config, error) {
@@ -49,15 +52,21 @@ func Load(lookup LookupFunc) (Config, error) {
 	smtpUser, _ := lookup("SMTP_USERNAME")
 	smtpPass, _ := lookup("SMTP_PASSWORD")
 	smtpFrom, _ := lookup("SMTP_FROM")
+	twilioAccountSID, _ := lookup("TWILIO_ACCOUNT_SID")
+	twilioAuthToken, _ := lookup("TWILIO_AUTH_TOKEN")
+	twilioFrom, _ := lookup("TWILIO_FROM_NUMBER")
 
 	return Config{
-		Port:        port,
-		DatabaseURL: databaseURL,
-		SMTPHost:    smtpHost,
-		SMTPPort:    smtpPort,
-		SMTPUser:    smtpUser,
-		SMTPPass:    smtpPass,
-		SMTPFrom:    smtpFrom,
+		Port:             port,
+		DatabaseURL:      databaseURL,
+		SMTPHost:         smtpHost,
+		SMTPPort:         smtpPort,
+		SMTPUser:         smtpUser,
+		SMTPPass:         smtpPass,
+		SMTPFrom:         smtpFrom,
+		TwilioAccountSID: twilioAccountSID,
+		TwilioAuthToken:  twilioAuthToken,
+		TwilioFromNumber: twilioFrom,
 	}, nil
 }
 

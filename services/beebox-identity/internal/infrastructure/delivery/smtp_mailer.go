@@ -36,7 +36,7 @@ func (m *SMTPMailer) SendVerificationEmail(_ context.Context, message auth.Verif
 func (m *SMTPMailer) SendPasswordReset(_ context.Context, message auth.PasswordResetDeliveryMessage) error {
 	subject := "BeeBox password reset"
 	body := fmt.Sprintf("Your password reset id is %s and token is %s. It expires at %s.", message.ResetID, message.Token, message.ExpiresAt)
-	return m.send(message.UserID, subject, body)
+	return m.send(message.Target, subject, body)
 }
 
 func (m *SMTPMailer) send(to, subject, body string) error {

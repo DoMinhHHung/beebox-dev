@@ -8,8 +8,21 @@ import (
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/identity"
+	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/user"
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/internal/domain/verification"
 )
+
+type fakeVerificationUserRepository struct {
+	findUser  user.User
+	findErr   error
+	findCalls int
+}
+
+func (f *fakeVerificationUserRepository) Create(context.Context, user.User) error { return nil }
+func (f *fakeVerificationUserRepository) FindByIdentifier(context.Context, identity.Identifier) (user.User, error) {
+	f.findCalls++
+	return f.findUser, f.findErr
+}
 
 type fakeVerificationMailer struct {
 	err   error
@@ -68,9 +81,12 @@ var _ VerificationRepository = (*fakeVerificationRepository)(nil)
 
 func TestRequestVerificationSuccessEmail(t *testing.T) {
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	userID, _ := identity.NewIdentifier("user-1")
+	u, _ := user.New(userID, now)
+	users := &fakeVerificationUserRepository{findUser: u}
 	repo := &fakeVerificationRepository{}
 	mailer := &fakeVerificationMailer{}
-	service := NewRequestVerificationService(repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
+	service := NewRequestVerificationService(users, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
 
 	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
@@ -100,7 +116,7 @@ func TestRequestVerificationSuccessEmail(t *testing.T) {
 func TestRequestVerificationSuccessPhone(t *testing.T) {
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	sms := &fakeVerificationSMSSender{}
-	service := NewRequestVerificationService(&fakeVerificationRepository{}, &fakeVerificationMailer{}, sms, &fakeClock{now: now})
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, sms, &fakeClock{now: now})
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
 		Type:   "phone",
@@ -114,10 +130,57 @@ func TestRequestVerificationSuccessPhone(t *testing.T) {
 	}
 }
 
-func TestRequestVerificationDeliveryFailure(t *testing.T) {
+func TestRequestVerificationDeliveryFailureStillAccepted(t *testing.T) {
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	mailer := &fakeVerificationMailer{err: errors.New("smtp down")}
-	service := NewRequestVerificationService(&fakeVerificationRepository{}, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
+	repo := &fakeVerificationRepository{}
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, repo, mailer, &fakeVerificationSMSSender{}, &fakeClock{now: now})
+	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
+		UserID: "user-1",
+		Type:   "email",
+		Target: "user@example.com",
+	})
+	if err != nil {
+		t.Fatalf("delivery failure must not change public success, got %v", err)
+	}
+	if result.VerificationID == "" {
+		t.Fatal("expected verification id")
+	}
+	if repo.createCalls != 1 {
+		t.Fatal("expected verification created for existing user")
+	}
+}
+
+func TestRequestVerificationUnknownUserEnumerationSafe(t *testing.T) {
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	users := &fakeVerificationUserRepository{findErr: ErrNotFound}
+	repo := &fakeVerificationRepository{}
+	mailer := &fakeVerificationMailer{}
+	sms := &fakeVerificationSMSSender{}
+	service := NewRequestVerificationService(users, repo, mailer, sms, &fakeClock{now: now})
+	result, err := service.RequestVerification(context.Background(), RequestVerificationInput{
+		UserID: "missing-user",
+		Type:   "email",
+		Target: "missing@example.com",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.VerificationID == "" || result.ExpiresAt.IsZero() {
+		t.Fatal("expected same public success shape")
+	}
+	if repo.createCalls != 0 {
+		t.Fatal("must not create verification for unknown user")
+	}
+	if mailer.calls != 0 || sms.calls != 0 {
+		t.Fatal("must not deliver for unknown user")
+	}
+}
+
+func TestRequestVerificationUserLookupFailure(t *testing.T) {
+	users := &fakeVerificationUserRepository{findErr: errors.New("db down")}
+	repo := &fakeVerificationRepository{}
+	service := NewRequestVerificationService(users, repo, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()})
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{
 		UserID: "user-1",
 		Type:   "email",
@@ -126,12 +189,28 @@ func TestRequestVerificationDeliveryFailure(t *testing.T) {
 	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
 		t.Fatalf("expected dependency failure, got %v", err)
 	}
+	if repo.createCalls != 0 {
+		t.Fatal("must not create on lookup failure")
+	}
 }
 
 func TestRequestVerificationValidation(t *testing.T) {
-	service := NewRequestVerificationService(&fakeVerificationRepository{}, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()})
+	service := NewRequestVerificationService(&fakeVerificationUserRepository{findUser: mustUser(t)}, &fakeVerificationRepository{}, &fakeVerificationMailer{}, &fakeVerificationSMSSender{}, &fakeClock{now: time.Now().UTC()})
 	_, err := service.RequestVerification(context.Background(), RequestVerificationInput{UserID: "", Type: "email", Target: "a"})
 	if !apperror.IsCode(err, apperror.CodeValidation) {
 		t.Fatalf("expected validation, got %v", err)
 	}
+}
+
+func mustUser(t *testing.T) user.User {
+	t.Helper()
+	id, err := identity.NewIdentifier("user-1")
+	if err != nil {
+		t.Fatalf("id: %v", err)
+	}
+	u, err := user.New(id, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	return u
 }

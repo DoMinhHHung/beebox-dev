@@ -87,6 +87,10 @@ func (s *SignInService) SignIn(ctx context.Context, input SignInInput) (SignInRe
 		return SignInResult{}, translateRepositoryError(err)
 	}
 
+	if foundCredential.IsRevoked() {
+		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
+	}
+
 	if err := s.hasher.Verify(ctx, input.Password, foundCredential.PasswordHash()); err != nil {
 		return SignInResult{}, apperror.New(apperror.CodeUnauthenticated, "invalid credentials")
 	}

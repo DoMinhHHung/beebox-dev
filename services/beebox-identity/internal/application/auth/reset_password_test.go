@@ -372,3 +372,23 @@ func TestResetPasswordCredentialLookupFailure(t *testing.T) {
 		t.Fatalf("expected dependency failure, got %v", err)
 	}
 }
+
+func TestResetPasswordMarkUsedAlreadyConsumed(t *testing.T) {
+	userID, _ := identity.NewIdentifier("user-1")
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	token := "token-value"
+	resets := &fakeResetPasswordResetRepository{
+		findValue:   pendingResetForTest(t, userID, token, now),
+		markUsedErr: ErrNotFound,
+	}
+	credentials := &fakeResetCredentialRepository{findValue: credentialForResetTest(t, userID, now)}
+	sessions := &fakeResetSessionRepository{}
+	service := NewResetPasswordService(resets, credentials, sessions, &fakeResetPasswordHasher{hashValue: "h"}, &fakeClock{now: now}, nil)
+
+	_, err := service.ResetPassword(context.Background(), ResetPasswordInput{
+		ResetID: "reset-1", Token: token, NewPassword: "secret",
+	})
+	if !apperror.IsCode(err, apperror.CodeConflict) {
+		t.Fatalf("expected conflict for concurrent consume, got %v", err)
+	}
+}

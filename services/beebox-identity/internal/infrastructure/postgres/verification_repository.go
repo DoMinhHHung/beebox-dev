@@ -68,7 +68,7 @@ func (r *VerificationRepository) MarkUsed(ctx context.Context, value verificatio
 		return errors.New("verification is not used")
 	}
 	tag, err := q.Exec(ctx,
-		`UPDATE verifications SET used_at = $2 WHERE id = $1`,
+		`UPDATE verifications SET used_at = $2 WHERE id = $1 AND used_at IS NULL`,
 		value.ID(), usedAt.UTC(),
 	)
 	if err != nil {

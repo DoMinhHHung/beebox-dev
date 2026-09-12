@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/DoMinhHHung/beebox-dev/services/beebox-identity/apperror"
@@ -54,7 +56,12 @@ func NewRequestPasswordResetService(
 }
 
 func (s *RequestPasswordResetService) RequestPasswordReset(ctx context.Context, input RequestPasswordResetInput) (RequestPasswordResetResult, error) {
-	identifier, err := identity.NewIdentifier(input.Identifier)
+	emailTarget, err := normalizeEmailTarget(input.Identifier)
+	if err != nil {
+		return RequestPasswordResetResult{}, apperror.New(apperror.CodeValidation, "invalid request password reset input")
+	}
+
+	identifier, err := identity.NewIdentifier(emailTarget)
 	if err != nil {
 		return RequestPasswordResetResult{}, apperror.Wrap(apperror.CodeValidation, "invalid request password reset input", err)
 	}
@@ -90,19 +97,32 @@ func (s *RequestPasswordResetService) RequestPasswordReset(ctx context.Context, 
 		return RequestPasswordResetResult{}, translateRepositoryError(err)
 	}
 
-	if s.mailer == nil {
-		return RequestPasswordResetResult{}, apperror.New(apperror.CodeDependencyFailure, "password reset delivery failed")
-	}
-	if err := s.mailer.SendPasswordReset(ctx, PasswordResetDeliveryMessage{
-		UserID:    foundUser.ID().String(),
-		ResetID:   reset.ID(),
-		Token:     token,
-		ExpiresAt: reset.ExpiresAt().UTC().Format(time.RFC3339),
-	}); err != nil {
-		return RequestPasswordResetResult{}, apperror.Wrap(apperror.CodeDependencyFailure, "password reset delivery failed", err)
+	if s.mailer != nil {
+		_ = s.mailer.SendPasswordReset(ctx, PasswordResetDeliveryMessage{
+			UserID:    foundUser.ID().String(),
+			Target:    emailTarget,
+			ResetID:   reset.ID(),
+			Token:     token,
+			ExpiresAt: reset.ExpiresAt().UTC().Format(time.RFC3339),
+		})
 	}
 
 	return RequestPasswordResetResult{Status: "accepted"}, nil
+}
+
+func normalizeEmailTarget(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.ContainsAny(value, " <>") {
+		return "", errors.New("invalid email")
+	}
+	addr, err := mail.ParseAddress(value)
+	if err != nil {
+		return "", err
+	}
+	if addr.Address != value {
+		return "", errors.New("invalid email")
+	}
+	return addr.Address, nil
 }
 
 func generatePasswordResetToken(r io.Reader) (string, error) {

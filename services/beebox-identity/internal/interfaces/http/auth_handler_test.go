@@ -217,7 +217,7 @@ func TestSignUpSuccess(t *testing.T) {
 	mux := testRouter(t, Dependencies{SignUp: svc})
 
 	rec := postJSON(t, mux, "/auth/signup", map[string]string{
-		"identifier": "user-1",
+		"identifier": "user@example.com",
 		"password":   "secret",
 	})
 	if rec.Code != http.StatusCreated {
@@ -312,7 +312,7 @@ func TestSignOutSuccess(t *testing.T) {
 
 func TestRequestVerificationSuccess(t *testing.T) {
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	svc := auth.NewRequestVerificationService(&httpFakeVerificationRepo{}, httpFakeVerificationMailer{}, httpFakeVerificationSMS{}, &httpFakeClock{now: now})
+	svc := auth.NewRequestVerificationService(&httpFakeUserRepo{findUser: mustHTTPUser(t)}, &httpFakeVerificationRepo{}, httpFakeVerificationMailer{}, httpFakeVerificationSMS{}, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{RequestVerification: svc})
 
 	rec := postJSON(t, mux, "/auth/verification/request", map[string]string{
@@ -348,7 +348,7 @@ func TestVerifyFailure(t *testing.T) {
 }
 
 func TestRequestPasswordResetKnownUser(t *testing.T) {
-	userID, _ := identity.NewIdentifier("user-1")
+	userID, _ := identity.NewIdentifier("user@example.com")
 	now := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	u, _ := user.New(userID, now)
 	users := &httpFakeUserRepo{findUser: u}
@@ -356,7 +356,7 @@ func TestRequestPasswordResetKnownUser(t *testing.T) {
 	svc := auth.NewRequestPasswordResetService(users, resets, httpFakePasswordResetMailer{}, &httpFakeClock{now: now})
 	mux := testRouter(t, Dependencies{RequestPasswordReset: svc})
 
-	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "user-1"})
+	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "user@example.com"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -374,7 +374,7 @@ func TestRequestPasswordResetEnumerationProtection(t *testing.T) {
 	svc := auth.NewRequestPasswordResetService(users, &httpFakePasswordResetRepo{}, httpFakePasswordResetMailer{}, &httpFakeClock{now: time.Now().UTC()})
 	mux := testRouter(t, Dependencies{RequestPasswordReset: svc})
 
-	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "missing"})
+	rec := postJSON(t, mux, "/auth/password-reset/request", map[string]string{"identifier": "missing@example.com"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200 for unknown identity, got %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -483,4 +483,17 @@ func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, code string) 
 func authHashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
+}
+
+func mustHTTPUser(t *testing.T) user.User {
+	t.Helper()
+	id, err := identity.NewIdentifier("user-1")
+	if err != nil {
+		t.Fatalf("id: %v", err)
+	}
+	u, err := user.New(id, time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("user: %v", err)
+	}
+	return u
 }

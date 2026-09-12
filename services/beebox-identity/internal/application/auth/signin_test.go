@@ -243,3 +243,28 @@ func TestHashSessionToken(t *testing.T) {
 		t.Fatal("unexpected hash behavior")
 	}
 }
+
+func TestSignInRejectsRevokedCredential(t *testing.T) {
+	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
+	cred := signInCredentialForTest(t)
+	revoked, err := cred.Revoke(now.Add(-time.Hour))
+	if err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	users := &fakeSignInUserRepository{findUser: signInUserForTest(t)}
+	credentials := &fakeSignInCredentialRepository{findCredential: revoked}
+	sessions := &fakeSignInSessionRepository{}
+	hasher := &fakeSignInPasswordHasher{}
+	service := NewSignInService(users, credentials, sessions, hasher, &fakeClock{now: now})
+
+	_, err = service.SignIn(context.Background(), SignInInput{Identifier: "user-1", Password: "plain-secret"})
+	if !apperror.IsCode(err, apperror.CodeUnauthenticated) {
+		t.Fatalf("expected unauthenticated, got %v", err)
+	}
+	if sessions.createCalls != 0 {
+		t.Fatal("must not create session for revoked credential")
+	}
+	if hasher.verifyCalls != 0 {
+		t.Fatal("must not verify password for revoked credential")
+	}
+}

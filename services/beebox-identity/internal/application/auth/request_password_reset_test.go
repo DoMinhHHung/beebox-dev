@@ -56,7 +56,7 @@ func (f *fakePasswordResetRepository) MarkUsed(context.Context, passwordreset.Pa
 }
 
 func TestRequestPasswordResetSuccess(t *testing.T) {
-	userID, _ := identity.NewIdentifier("user-1")
+	userID, _ := identity.NewIdentifier("user@example.com")
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	foundUser, _ := user.New(userID, now.Add(-time.Hour))
 	users := &fakePasswordResetUserRepository{findUser: foundUser}
@@ -64,7 +64,7 @@ func TestRequestPasswordResetSuccess(t *testing.T) {
 	mailer := &fakePasswordResetMailer{}
 	service := NewRequestPasswordResetService(users, resets, mailer, &fakeClock{now: now})
 
-	result, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "user-1"})
+	result, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "user@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -77,6 +77,9 @@ func TestRequestPasswordResetSuccess(t *testing.T) {
 	if mailer.calls != 1 || mailer.last.Token == "" || mailer.last.ResetID == "" {
 		t.Fatal("expected delivery with token")
 	}
+	if mailer.last.Target != "user@example.com" {
+		t.Fatalf("expected email target, got %q", mailer.last.Target)
+	}
 	if resets.created.TokenHash() == mailer.last.Token {
 		t.Fatal("must not persist plaintext token")
 	}
@@ -87,7 +90,7 @@ func TestRequestPasswordResetUnknownUser(t *testing.T) {
 	resets := &fakePasswordResetRepository{}
 	mailer := &fakePasswordResetMailer{}
 	service := NewRequestPasswordResetService(users, resets, mailer, &fakeClock{now: time.Now().UTC()})
-	result, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "missing"})
+	result, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "missing@example.com"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,16 +102,31 @@ func TestRequestPasswordResetUnknownUser(t *testing.T) {
 	}
 }
 
-func TestRequestPasswordResetDeliveryFailure(t *testing.T) {
-	userID, _ := identity.NewIdentifier("user-1")
+func TestRequestPasswordResetDeliveryFailureStillAccepted(t *testing.T) {
+	userID, _ := identity.NewIdentifier("user@example.com")
 	now := time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC)
 	foundUser, _ := user.New(userID, now)
 	users := &fakePasswordResetUserRepository{findUser: foundUser}
+	resets := &fakePasswordResetRepository{}
 	mailer := &fakePasswordResetMailer{err: errors.New("smtp")}
-	service := NewRequestPasswordResetService(users, &fakePasswordResetRepository{}, mailer, &fakeClock{now: now})
+	service := NewRequestPasswordResetService(users, resets, mailer, &fakeClock{now: now})
+	result, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "user@example.com"})
+	if err != nil {
+		t.Fatalf("delivery failure must not change public success, got %v", err)
+	}
+	if result.Status != "accepted" {
+		t.Fatalf("expected accepted, got %q", result.Status)
+	}
+	if resets.createCalls != 1 {
+		t.Fatal("expected reset created")
+	}
+}
+
+func TestRequestPasswordResetNonEmailIdentifier(t *testing.T) {
+	service := NewRequestPasswordResetService(&fakePasswordResetUserRepository{}, &fakePasswordResetRepository{}, &fakePasswordResetMailer{}, &fakeClock{now: time.Now().UTC()})
 	_, err := service.RequestPasswordReset(context.Background(), RequestPasswordResetInput{Identifier: "user-1"})
-	if !apperror.IsCode(err, apperror.CodeDependencyFailure) {
-		t.Fatalf("expected dependency failure, got %v", err)
+	if !apperror.IsCode(err, apperror.CodeValidation) {
+		t.Fatalf("expected validation, got %v", err)
 	}
 }
 
