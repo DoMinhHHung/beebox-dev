@@ -140,6 +140,19 @@ func TestVerifyPublic_SuccessAndFailures(t *testing.T) {
 	if apperror.CodeOf(err) != apperror.CodeUnauthenticated {
 		t.Fatalf("expired expected unauthenticated, got %v", err)
 	}
+
+	if _, err := projects.Transition(ctx, "project-1", domainproject.StatusSuspended); err != nil {
+		t.Fatal(err)
+	}
+	issued3, err := svc.IssuePublic(ctx, "project-1", "organization-1", "after-suspend-should-fail")
+	if apperror.CodeOf(err) != apperror.CodeForbidden {
+		t.Fatalf("issue on suspended expected forbidden, got %v", err)
+	}
+	_ = issued3
+	_, err = svc.VerifyPublic(ctx, "project-1", issued.Secret)
+	if apperror.CodeOf(err) != apperror.CodeUnauthenticated {
+		t.Fatalf("suspended project verify expected unauthenticated, got %v", err)
+	}
 }
 
 func TestIssuePublic_AllowsMultipleActiveCredentials(t *testing.T) {
