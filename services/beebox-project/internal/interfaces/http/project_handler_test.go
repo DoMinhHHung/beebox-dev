@@ -22,7 +22,7 @@ func (a testAuthenticator) Authenticate(context.Context, string) (auth.Principal
 }
 
 func newTestRouter() *http.ServeMux {
-	return NewRouter(project.NewService(memory.NewProjectRepository()), testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
+	return NewRouter(project.NewService(memory.NewProjectRepository()), "test-internal-token", testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
 }
 
 func doJSON(t *testing.T, router *http.ServeMux, method string, path string, body any) *httptest.ResponseRecorder {

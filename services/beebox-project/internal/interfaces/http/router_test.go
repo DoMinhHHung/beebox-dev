@@ -10,7 +10,7 @@ import (
 )
 
 func TestHealthz_ReturnsOK(t *testing.T) {
-	router := NewRouter(project.NewService(memory.NewProjectRepository()))
+	router := NewRouter(project.NewService(memory.NewProjectRepository()), "test-internal-token")
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/healthz", nil)
 	rec := httptest.NewRecorder()

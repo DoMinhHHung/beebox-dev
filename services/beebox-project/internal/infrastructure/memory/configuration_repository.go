@@ -90,3 +90,18 @@ func (r *ConfigurationRepository) SaveRollout(_ context.Context, state domaincon
 	r.rollouts[state.ProjectID] = state
 	return nil
 }
+
+func (r *ConfigurationRepository) Apply(_ context.Context, version domainconfiguration.Version, state domainconfiguration.RolloutState) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	versions := r.versions[version.ProjectID]
+	if versions == nil {
+		return applicationconfiguration.ErrVersionNotFound
+	}
+	if _, ok := versions[version.Number]; !ok {
+		return applicationconfiguration.ErrVersionNotFound
+	}
+	versions[version.Number] = version
+	r.rollouts[state.ProjectID] = state
+	return nil
+}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestProjectAccess_RequiresAuthentication(t *testing.T) {
-	router := NewRouter(project.NewService(memory.NewProjectRepository()), testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
+	router := NewRouter(project.NewService(memory.NewProjectRepository()), "test-internal-token", testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/v1/projects/project-1", nil)
 	rec := httptest.NewRecorder()
 
@@ -26,10 +26,10 @@ func TestProjectAccess_RequiresAuthentication(t *testing.T) {
 
 func TestProjectAccess_RejectsUnauthorizedOrganization(t *testing.T) {
 	repo := memory.NewProjectRepository()
-	ownerRouter := NewRouter(project.NewService(repo), testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
+	ownerRouter := NewRouter(project.NewService(repo), "test-internal-token", testAuthenticator{principal: auth.Principal{UserID: "user-1", OrganizationID: "organization-1"}})
 	doJSON(t, ownerRouter, http.MethodPost, "/v1/projects", map[string]string{"id": "project-1", "organization_id": "organization-1"})
 
-	otherRouter := NewRouter(project.NewService(repo), testAuthenticator{principal: auth.Principal{UserID: "user-2", OrganizationID: "organization-2"}})
+	otherRouter := NewRouter(project.NewService(repo), "test-internal-token", testAuthenticator{principal: auth.Principal{UserID: "user-2", OrganizationID: "organization-2"}})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/v1/projects/project-1", nil)
 	req.Header.Set("Authorization", "Bearer test-token")
 	rec := httptest.NewRecorder()

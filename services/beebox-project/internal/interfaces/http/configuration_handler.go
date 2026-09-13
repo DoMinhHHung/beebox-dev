@@ -46,6 +46,17 @@ type rolloutResponse struct {
 	AppliedVersion int    `json:"applied_version"`
 }
 
+type appliedConfigurationResponse struct {
+	ProjectID         string             `json:"project_id"`
+	ProjectStatus     string             `json:"project_status"`
+	AppliedVersion    int                `json:"applied_version"`
+	ModuleID          string             `json:"module_id"`
+	ModuleVersion     string             `json:"module_version"`
+	CapabilityID      string             `json:"capability_id"`
+	CapabilityVersion string             `json:"capability_version"`
+	DataFields        []dataFieldRequest `json:"data_fields"`
+}
+
 type transitionConfigurationRequest struct {
 	Status string `json:"status"`
 }
@@ -148,6 +159,53 @@ func (h *configurationHandler) rollout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rolloutResponse{ProjectID: state.ProjectID, DesiredVersion: state.DesiredVersion, AppliedVersion: state.AppliedVersion})
+}
+
+func (h *configurationHandler) apply(w http.ResponseWriter, r *http.Request) {
+	versionNumber, err := parseConfigurationVersion(r.PathValue("version"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	principal, ok := principalFromContext(r.Context())
+	if !ok {
+		writeError(w, apperror.New(apperror.CodeUnauthenticated, "unauthenticated"))
+		return
+	}
+	version, _, err := h.service.Apply(r.Context(), r.PathValue("id"), principal.OrganizationID, versionNumber)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toConfigurationResponse(version))
+}
+
+func (h *configurationHandler) appliedConfiguration(w http.ResponseWriter, r *http.Request) {
+	snapshot, err := h.service.GetAppliedConfiguration(r.Context(), r.PathValue("id"))
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	fields := make([]dataFieldRequest, len(snapshot.DataFields))
+	for i, field := range snapshot.DataFields {
+		fields[i] = dataFieldRequest{
+			ModuleID:          field.ModuleID,
+			CapabilityID:      field.CapabilityID,
+			CapabilityVersion: field.CapabilityVersion,
+			ID:                field.ID,
+			Version:           field.Version,
+		}
+	}
+	writeJSON(w, http.StatusOK, appliedConfigurationResponse{
+		ProjectID:         snapshot.ProjectID,
+		ProjectStatus:     string(snapshot.ProjectStatus),
+		AppliedVersion:    snapshot.AppliedVersion,
+		ModuleID:          snapshot.ModuleID,
+		ModuleVersion:     snapshot.ModuleVersion,
+		CapabilityID:      snapshot.CapabilityID,
+		CapabilityVersion: snapshot.CapabilityVersion,
+		DataFields:        fields,
+	})
 }
 
 func (h *configurationHandler) authorizedVersion(r *http.Request) (domainconfiguration.Version, error) {

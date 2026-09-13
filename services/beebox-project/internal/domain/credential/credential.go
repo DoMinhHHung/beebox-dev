@@ -68,18 +68,12 @@ func New(
 	}
 
 	credentialValue := Credential{
-		ProjectID: projectID,
-		ID:        id,
-		Name:      name,
-		Kind:      kind,
-		Status:    StatusActive,
-	}
-
-	switch kind {
-	case KindPublic:
-		credentialValue.Value = raw
-	case KindSecret:
-		credentialValue.SecretHash = hashSecret(raw)
+		ProjectID:  projectID,
+		ID:         id,
+		Name:       name,
+		Kind:       kind,
+		SecretHash: hashSecret(raw),
+		Status:     StatusActive,
 	}
 
 	return IssuedCredential{
@@ -147,24 +141,18 @@ func (c Credential) Matches(candidate string) bool {
 		return false
 	}
 
-	if candidate == "" {
+	if candidate == "" || c.SecretHash == "" {
 		return false
 	}
 
-	switch c.Kind {
-	case KindPublic:
-		return subtle.ConstantTimeCompare(
-			[]byte(c.Value),
-			[]byte(candidate),
-		) == 1
-	case KindSecret:
-		return subtle.ConstantTimeCompare(
-			[]byte(hashSecret(candidate)),
-			[]byte(c.SecretHash),
-		) == 1
-	default:
-		return false
-	}
+	return subtle.ConstantTimeCompare(
+		[]byte(hashSecret(candidate)),
+		[]byte(c.SecretHash),
+	) == 1
+}
+
+func HashSecret(secret string) string {
+	return hashSecret(secret)
 }
 
 func generateSecret() (string, error) {

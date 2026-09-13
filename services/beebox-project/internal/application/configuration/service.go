@@ -17,10 +17,23 @@ type Repository interface {
 	UpdateVersion(context.Context, domainconfiguration.Version) error
 	GetRollout(context.Context, string) (domainconfiguration.RolloutState, error)
 	SaveRollout(context.Context, domainconfiguration.RolloutState) error
+	Apply(context.Context, domainconfiguration.Version, domainconfiguration.RolloutState) error
 }
 
 type ProjectAuthorizer interface {
+	Get(context.Context, string) (domainproject.Project, error)
 	GetAuthorized(context.Context, string, string) (domainproject.Project, error)
+}
+
+type AppliedConfiguration struct {
+	ProjectID         string
+	ProjectStatus     domainproject.Status
+	AppliedVersion    int
+	ModuleID          string
+	ModuleVersion     string
+	CapabilityID      string
+	CapabilityVersion string
+	DataFields        []domainconfiguration.DataFieldReference
 }
 
 type Service struct {
@@ -155,6 +168,107 @@ func (s *Service) Rollout(ctx context.Context, projectID, organizationID string,
 		return domainconfiguration.RolloutState{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to save rollout", err)
 	}
 	return state, nil
+}
+
+func (s *Service) Apply(ctx context.Context, projectID, organizationID string, number int) (domainconfiguration.Version, domainconfiguration.RolloutState, error) {
+	if _, err := s.authorize(ctx, projectID, organizationID); err != nil {
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, err
+	}
+
+	version, err := s.repo.GetVersion(ctx, projectID, number)
+	if errors.Is(err, ErrVersionNotFound) {
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeNotFound, "configuration version not found")
+	}
+	if err != nil {
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load configuration version", err)
+	}
+
+	state, err := s.repo.GetRollout(ctx, projectID)
+	if errors.Is(err, ErrRolloutNotFound) {
+		state, err = domainconfiguration.NewRolloutState(projectID)
+		if err != nil {
+			return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeValidation, err.Error())
+		}
+	} else if err != nil {
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load rollout", err)
+	}
+
+	if version.Status == domainconfiguration.StatusApplied && state.AppliedVersion == number {
+		return version, state, nil
+	}
+
+	applied := version
+	if version.Status != domainconfiguration.StatusApplied {
+		if version.Status != domainconfiguration.StatusPublished {
+			return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeConflict, domainconfiguration.ErrInvalidLifecycleTransition.Error())
+		}
+		applied, err = version.Transition(domainconfiguration.StatusApplied)
+		if err != nil {
+			return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeConflict, err.Error())
+		}
+	}
+
+	state, err = state.WithAppliedVersion(applied)
+	if err != nil {
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeConflict, err.Error())
+	}
+
+	if err := s.repo.Apply(ctx, applied, state); err != nil {
+		if errors.Is(err, ErrVersionNotFound) {
+			return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeNotFound, "configuration version not found")
+		}
+		if errors.Is(err, ErrVersionConflict) {
+			return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.New(apperror.CodeConflict, "configuration version was updated concurrently")
+		}
+		return domainconfiguration.Version{}, domainconfiguration.RolloutState{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to apply configuration", err)
+	}
+
+	return applied, state, nil
+}
+
+func (s *Service) GetAppliedConfiguration(ctx context.Context, projectID string) (AppliedConfiguration, error) {
+	if projectID == "" {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeValidation, "project id is required")
+	}
+
+	project, err := s.projects.Get(ctx, projectID)
+	if err != nil {
+		return AppliedConfiguration{}, err
+	}
+	if project.Status != domainproject.StatusActive {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeForbidden, "project is not active")
+	}
+
+	state, err := s.repo.GetRollout(ctx, projectID)
+	if errors.Is(err, ErrRolloutNotFound) {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeNotFound, "configuration not applied")
+	}
+	if err != nil {
+		return AppliedConfiguration{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load rollout", err)
+	}
+	if state.AppliedVersion < 1 {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeNotFound, "configuration not applied")
+	}
+
+	version, err := s.repo.GetVersion(ctx, projectID, state.AppliedVersion)
+	if errors.Is(err, ErrVersionNotFound) {
+		return AppliedConfiguration{}, apperror.New(apperror.CodeInternal, "applied configuration is inconsistent")
+	}
+	if err != nil {
+		return AppliedConfiguration{}, apperror.Wrap(apperror.CodeDependencyFailure, "failed to load configuration version", err)
+	}
+
+	fields := append([]domainconfiguration.DataFieldReference(nil), version.Configuration.DataFields...)
+	return AppliedConfiguration{
+		ProjectID:         project.ID,
+		ProjectStatus:     project.Status,
+		AppliedVersion:    state.AppliedVersion,
+		ModuleID:          version.Configuration.ModuleID,
+		ModuleVersion:     version.Configuration.ModuleVersion,
+		CapabilityID:      version.Configuration.CapabilityID,
+		CapabilityVersion: version.Configuration.CapabilityVersion,
+		DataFields:        fields,
+	}, nil
 }
 
 func (s *Service) authorize(ctx context.Context, projectID, organizationID string) (domainproject.Project, error) {

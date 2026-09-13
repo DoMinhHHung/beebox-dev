@@ -42,16 +42,20 @@ func TestNew_IssuesActivePublicCredential(t *testing.T) {
 		t.Fatalf("expected status %q, got %q", credential.StatusActive, got.Status)
 	}
 
-	if got.Value == "" {
-		t.Fatal("expected public credential to retain its value")
+	if got.Value != "" {
+		t.Fatal("expected public credential to never store the raw value in Value")
 	}
 
-	if got.SecretHash != "" {
-		t.Fatal("expected public credential to have no secret hash")
+	if got.SecretHash == "" {
+		t.Fatal("expected public credential to store a secret hash")
 	}
 
-	if issued.Secret != got.Value {
-		t.Fatalf("expected issued secret to equal stored value for a public credential")
+	if got.SecretHash == issued.Secret {
+		t.Fatal("expected the stored hash to differ from the raw issued secret")
+	}
+
+	if !got.Matches(issued.Secret) {
+		t.Fatal("expected public credential to match its issued secret")
 	}
 }
 
