@@ -139,3 +139,24 @@ func TestGetAppliedConfiguration_MalformedJSON(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestGetAppliedConfiguration_RejectsProjectIDMismatch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"project_id":         "other-project",
+			"project_status":     "ACTIVE",
+			"applied_version":    2,
+			"module_id":          "beebox-auth",
+			"module_version":     "v1",
+			"capability_id":      "password",
+			"capability_version": "v1",
+			"data_fields":        []any{},
+		})
+	}))
+	defer srv.Close()
+	client := projectclient.New(srv.URL, "tok", time.Second, srv.Client())
+	_, err := client.GetAppliedConfiguration(context.Background(), "p1")
+	if apperror.CodeOf(err) != apperror.CodeDependencyFailure {
+		t.Fatalf("got %v", err)
+	}
+}
