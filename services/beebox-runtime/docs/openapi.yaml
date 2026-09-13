@@ -25,6 +25,17 @@ paths:
       operationId: getProjectAuthSession
       tags:
         - Project
+      summary: Resolve end-user session for a project
+      description: |
+        Requires a valid project public credential (X-BeeBox-Project-Credential)
+        and an end-user Identity bearer token (Authorization).
+        Inactive/suspended projects cause project credential verification to fail
+        with 401 UNAUTHENTICATED (project status is not disclosed).
+        Missing/invalid/revoked/expired user sessions return 401.
+        Missing applied session capability returns 403.
+        session_id in the response is the Identity-persisted session identifier
+        (hash of the bearer), not the raw bearer token.
+        organization_id is the MVP placeholder from Identity (equal to user_id).
       security:
         - ProjectCredentialHeader: []
           RuntimeUserSessionBearerAuth: []
@@ -38,9 +49,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProjectSessionResponse'
         '401':
-          $ref: '#/components/responses/UnauthenticatedError'
+          description: |
+            Unauthenticated. Returned for missing/invalid project credential,
+            credential scoped to a different project, inactive/suspended project,
+            missing/malformed/invalid/revoked/expired end-user bearer, or
+            Identity dependency authentication failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '403':
-          $ref: '#/components/responses/ForbiddenError'
+          description: |
+            Forbidden. Returned when the project is active and credential is valid
+            but the applied configuration does not enable the required session
+            capability, or other authorization gates fail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundError'
         '502':
@@ -159,8 +185,14 @@ components:
           type: string
         session_id:
           type: string
+          description: |
+            Identity-persisted session identifier (SHA-256 of the end-user bearer).
+            Never equal to the raw Authorization bearer token.
         organization_id:
           type: string
+          description: |
+            MVP placeholder from Identity; currently equal to user_id.
+            Not a real multi-tenant organization identifier.
     ProjectReadyResponse:
       type: object
       required:
