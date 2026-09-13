@@ -58,7 +58,11 @@ PY
 ```
 
 ```bash
-go test ./...
+for dir in services/*/ modules/*/; do
+  if [ -f "$dir/go.mod" ]; then
+    (cd "$dir" && go test ./...)
+  fi
+done
 ```
 
 Use your local editor or any installed OpenAPI linter/viewer to inspect the YAML. No Swagger UI or runtime OpenAPI middleware is required in the Go services.
