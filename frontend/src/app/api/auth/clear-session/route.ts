@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { clearSessionCookie } from "@/lib/session";
 
 /**
@@ -6,12 +6,13 @@ import { clearSessionCookie } from "@/lib/session";
  * Used when a protected page detects an invalid/expired session.
  * Cookie mutation is only allowed in Route Handlers / Server Actions.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   await clearSessionCookie();
 
-  return NextResponse.redirect(
-    new URL("/session-expired", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
-  );
+  const url = request.nextUrl.clone();
+  url.pathname = "/session-expired";
+  url.search = "";
+  return NextResponse.redirect(url);
 }
 
 export async function POST() {
