@@ -132,7 +132,7 @@ func (c *Client) GetAppliedConfiguration(ctx context.Context, projectID string) 
 	switch res.StatusCode {
 	case http.StatusOK:
 		var out appliedResponse
-		if err := json.Unmarshal(payload, &out); err != nil || out.ProjectID == "" || out.AppliedVersion < 1 {
+		if err := json.Unmarshal(payload, &out); err != nil || out.ProjectID == "" || out.AppliedVersion < 1 || out.ProjectID != projectID {
 			return domain.AppliedConfiguration{}, apperror.New(apperror.CodeDependencyFailure, "project service returned invalid applied configuration")
 		}
 		fields := make([]domain.DataField, 0, len(out.DataFields))
