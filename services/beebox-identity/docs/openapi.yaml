@@ -77,6 +77,12 @@ paths:
       operationId: getSession
       tags:
         - Authentication
+      summary: Resolve the current session from a bearer token
+      description: |
+        Accepts the opaque bearer token issued at sign-in. The service hashes the
+        token (SHA-256) and looks up the persisted session by that hash. The
+        response session_id is the persisted hash, never the raw bearer. The
+        organization_id field is an MVP placeholder equal to user_id.
       security:
         - IdentitySessionBearerAuth: []
       responses:
@@ -322,6 +328,11 @@ components:
           type: string
         session_id:
           type: string
+          description: |
+            Opaque bearer token returned to the client. This value is the credential
+            the client must present in the Authorization header. It is NOT the
+            identifier persisted in the session store; the store records a SHA-256
+            hash of this token. Never log or persist the raw value as the session ID.
         expires_at:
           type: string
           format: date-time
@@ -336,8 +347,17 @@ components:
           type: string
         session_id:
           type: string
+          description: |
+            Persisted session identifier (SHA-256 hash of the opaque bearer token).
+            This is never equal to the raw bearer token the client holds. Lookup
+            always hashes the presented bearer before querying storage.
         organization_id:
           type: string
+          description: |
+            MVP placeholder. Currently equal to the authenticated user_id.
+            A real multi-tenant organization model is not implemented; project
+            service uses this value only for developer ownership scoping under
+            the current single-user-as-organization mapping.
     RequestVerificationRequest:
       type: object
       required:
