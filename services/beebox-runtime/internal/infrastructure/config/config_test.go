@@ -36,3 +36,38 @@ func TestLoad_RequiresIdentity(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestLoad_RejectsURLWithQueryOrFragment(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want error
+	}{
+		{
+			name: "project query",
+			env: map[string]string{
+				"PROJECT_BASE_URL":      "http://127.0.0.1:8082?x=1",
+				"IDENTITY_BASE_URL":     "http://127.0.0.1:8081",
+				"BEEBOX_INTERNAL_TOKEN": "tok",
+			},
+			want: config.ErrInvalidProjectURL,
+		},
+		{
+			name: "identity fragment",
+			env: map[string]string{
+				"PROJECT_BASE_URL":      "http://127.0.0.1:8082",
+				"IDENTITY_BASE_URL":     "http://127.0.0.1:8081#frag",
+				"BEEBOX_INTERNAL_TOKEN": "tok",
+			},
+			want: config.ErrInvalidIdentityURL,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := config.Load(lookup(tc.env))
+			if err != tc.want {
+				t.Fatalf("got %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
