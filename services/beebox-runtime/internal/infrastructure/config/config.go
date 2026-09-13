@@ -90,6 +90,9 @@ func validateServiceURL(raw string, invalid error) error {
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return invalid
 	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return invalid
+	}
 	host := strings.ToLower(parsed.Hostname())
 	local := host == "localhost" || host == "127.0.0.1" || host == "::1"
 	if local {
