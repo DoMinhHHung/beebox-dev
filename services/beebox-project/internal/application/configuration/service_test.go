@@ -83,6 +83,35 @@ func TestLifecycleAndRollout(t *testing.T) {
 	}
 }
 
+func TestTransition_RejectsNonSequentialLifecycle(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	version, err := svc.CreateOrUpdate(ctx, "project-1", "organization-1", validConfiguration(t, "project-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusPublished)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("DRAFT to PUBLISHED expected CodeConflict, got %v", apperror.CodeOf(err))
+	}
+	_, err = svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusApplied)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("DRAFT to APPLIED expected CodeConflict, got %v", apperror.CodeOf(err))
+	}
+	version, err = svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusValidated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusApplied)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("VALIDATED to APPLIED expected CodeConflict, got %v", apperror.CodeOf(err))
+	}
+	_, err = svc.Transition(ctx, "project-1", "organization-1", version.Number, domainconfiguration.StatusDraft)
+	if apperror.CodeOf(err) != apperror.CodeConflict {
+		t.Fatalf("VALIDATED to DRAFT expected CodeConflict, got %v", apperror.CodeOf(err))
+	}
+}
+
 func TestAccessAndNotFound(t *testing.T) {
 	svc, _ := newService(t)
 	_, err := svc.Current(context.Background(), "missing", "organization-1")
