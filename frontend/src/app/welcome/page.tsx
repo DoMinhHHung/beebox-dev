@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { getSessionToken } from "@/lib/session";
-import { getSession } from "@/lib/beebox";
+import { getSession, BeeboxApiError } from "@/lib/beebox";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export const metadata = { title: "Welcome · BeeBox" };
@@ -15,10 +15,13 @@ export default async function WelcomePage() {
 
   try {
     await getSession(token);
-  } catch {
-    // Cannot modify cookies in a Server Component.
-    // Hand off to a Route Handler that clears the cookie then redirects.
-    redirect("/api/auth/clear-session");
+  } catch (err) {
+    // Only treat auth failures as expired session.
+    // Connection / 5xx errors should show service-unavailable instead.
+    if (err instanceof BeeboxApiError && (err.status === 401 || err.code === "UNAUTHENTICATED")) {
+      redirect("/api/auth/clear-session");
+    }
+    redirect("/service-unavailable");
   }
 
   return (

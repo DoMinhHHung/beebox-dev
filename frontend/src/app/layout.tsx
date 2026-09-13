@@ -16,7 +16,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={plusJakarta.variable}>
+    // suppressHydrationWarning: browser extensions often inject classes on <html>
+    <html lang="en" className={plusJakarta.variable} suppressHydrationWarning>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );
