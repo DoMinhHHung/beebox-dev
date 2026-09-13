@@ -230,6 +230,13 @@ paths:
       operationId: transitionProjectConfigurationVersion
       tags:
         - Configuration
+      summary: Transition configuration version lifecycle status
+      description: |
+        Advances the configuration version along the lifecycle:
+        DRAFT → VALIDATED → PUBLISHED.
+        Only the next sequential status is accepted; any other transition returns 409.
+        Prefer the dedicated POST apply endpoint to move PUBLISHED → APPLIED so that
+        rollout state is updated atomically with the version status.
       security:
         - DeveloperSessionBearerAuth: []
       requestBody:
@@ -276,6 +283,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RolloutResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthenticatedError'
         '403':
@@ -296,6 +305,13 @@ paths:
       operationId: applyProjectConfigurationVersion
       tags:
         - Configuration
+      summary: Apply a published configuration version
+      description: |
+        Explicit operation that transitions a PUBLISHED configuration version to APPLIED
+        and atomically persists the rollout applied_version. Idempotent when the version
+        is already APPLIED and matches the current rollout. Returns 409 if the version
+        is still DRAFT or VALIDATED. Applied state is persisted in PostgreSQL and survives
+        project service restart; it is never held only in memory.
       security:
         - DeveloperSessionBearerAuth: []
       responses:
@@ -305,6 +321,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigurationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/UnauthenticatedError'
         '403':
@@ -688,27 +706,23 @@ components:
     CreateProjectRequest:
       type: object
       required:
-        - id
+        - name
       properties:
-        id:
+        name:
           type: string
-    ProjectStatus:
-      type: string
-      enum:
-        - DRAFT
-        - ACTIVE
-        - SUSPENDED
-        - ARCHIVED
     ProjectResponse:
       type: object
       required:
         - id
         - organization_id
+        - name
         - status
       properties:
         id:
           type: string
         organization_id:
+          type: string
+        name:
           type: string
         status:
           $ref: '#/components/schemas/ProjectStatus'
@@ -719,32 +733,13 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/ProjectStatus'
-    DataFieldReference:
-      type: object
-      required:
-        - module_id
-        - capability_id
-        - capability_version
-        - id
-        - version
-      properties:
-        module_id:
-          type: string
-        capability_id:
-          type: string
-        capability_version:
-          type: string
-        id:
-          type: string
-        version:
-          type: string
-    ConfigurationStatus:
+    ProjectStatus:
       type: string
       enum:
         - DRAFT
-        - VALIDATED
-        - PUBLISHED
-        - APPLIED
+        - ACTIVE
+        - SUSPENDED
+        - ARCHIVED
     ConfigurationRequest:
       type: object
       required:
@@ -761,10 +756,19 @@ components:
           type: string
         capability_version:
           type: string
-        data_fields:
-          type: array
-          items:
-            $ref: '#/components/schemas/DataFieldReference'
+    ConfigurationStatus:
+      type: string
+      description: |
+        Configuration version lifecycle status.
+        Allowed transitions via PATCH transition:
+        DRAFT → VALIDATED → PUBLISHED.
+        APPLIED is set only by the explicit POST apply operation (or legacy transition from PUBLISHED).
+        Invalid transitions return 409 Conflict.
+      enum:
+        - DRAFT
+        - VALIDATED
+        - PUBLISHED
+        - APPLIED
     TransitionConfigurationRequest:
       type: object
       required:
@@ -772,22 +776,27 @@ components:
       properties:
         status:
           $ref: '#/components/schemas/ConfigurationStatus'
+          description: |
+            Target lifecycle status. Only the next sequential status is accepted:
+            DRAFT → VALIDATED, VALIDATED → PUBLISHED, PUBLISHED → APPLIED (legacy).
+            Prefer POST .../apply for moving PUBLISHED to APPLIED so rollout state is updated atomically.
     ConfigurationResponse:
       type: object
       required:
         - project_id
-        - version
+        - number
+        - status
         - module_id
         - module_version
         - capability_id
         - capability_version
-        - data_fields
-        - status
       properties:
         project_id:
           type: string
-        version:
+        number:
           type: integer
+        status:
+          $ref: '#/components/schemas/ConfigurationStatus'
         module_id:
           type: string
         module_version:
@@ -796,12 +805,6 @@ components:
           type: string
         capability_version:
           type: string
-        data_fields:
-          type: array
-          items:
-            $ref: '#/components/schemas/DataFieldReference'
-        status:
-          $ref: '#/components/schemas/ConfigurationStatus'
     RolloutResponse:
       type: object
       required:
@@ -844,13 +847,22 @@ components:
         data_fields:
           type: array
           items:
-            $ref: '#/components/schemas/DataFieldReference'
-    ModuleSummary:
+            $ref: '#/components/schemas/DataField'
+    DataField:
       type: object
       required:
+        - module_id
+        - capability_id
+        - capability_version
         - id
         - version
       properties:
+        module_id:
+          type: string
+        capability_id:
+          type: string
+        capability_version:
+          type: string
         id:
           type: string
         version:
@@ -863,7 +875,17 @@ components:
         modules:
           type: array
           items:
-            $ref: '#/components/schemas/ModuleSummary'
+            $ref: '#/components/schemas/CatalogModuleSummary'
+    CatalogModuleSummary:
+      type: object
+      required:
+        - id
+        - version
+      properties:
+        id:
+          type: string
+        version:
+          type: string
     CatalogModuleResponse:
       type: object
       required:
@@ -878,8 +900,8 @@ components:
         capabilities:
           type: array
           items:
-            $ref: '#/components/schemas/CapabilitySummary'
-    CapabilitySummary:
+            $ref: '#/components/schemas/CatalogCapabilitySummary'
+    CatalogCapabilitySummary:
       type: object
       required:
         - id
@@ -913,62 +935,46 @@ components:
             $ref: '#/components/schemas/EnablementResponse'
     EnablementRequest:
       type: object
-      required:
-        - module_version
-        - capability_version
       properties:
-        module_version:
-          type: string
-        capability_version:
-          type: string
-        data_fields:
+        fields:
           type: array
           items:
-            $ref: '#/components/schemas/DataFieldReference'
+            $ref: '#/components/schemas/EnablementField'
     EnablementPatchRequest:
       type: object
-      required:
-        - data_fields
       properties:
-        data_fields:
+        fields:
           type: array
           items:
-            $ref: '#/components/schemas/DataFieldReference'
+            $ref: '#/components/schemas/EnablementField'
+    EnablementField:
+      type: object
+      required:
+        - id
+        - version
+      properties:
+        id:
+          type: string
+        version:
+          type: string
     EnablementResponse:
       type: object
       required:
-        - project_id
         - module_id
-        - module_version
         - capability_id
         - capability_version
-        - data_fields
+        - fields
       properties:
-        project_id:
-          type: string
         module_id:
-          type: string
-        module_version:
           type: string
         capability_id:
           type: string
         capability_version:
           type: string
-        data_fields:
+        fields:
           type: array
           items:
-            $ref: '#/components/schemas/DataFieldReference'
-    CredentialKind:
-      type: string
-      enum:
-        - PUBLIC
-        - SECRET
-    CredentialStatus:
-      type: string
-      enum:
-        - ACTIVE
-        - REVOKED
-        - EXPIRED
+            $ref: '#/components/schemas/EnablementField'
     IssuePublicCredentialRequest:
       type: object
       required:
@@ -979,25 +985,16 @@ components:
     IssuePublicCredentialResponse:
       type: object
       required:
-        - project_id
-        - id
-        - name
+        - credential_id
+        - secret
         - kind
-        - status
-        - credential
       properties:
-        project_id:
+        credential_id:
           type: string
-        id:
-          type: string
-        name:
+        secret:
           type: string
         kind:
           $ref: '#/components/schemas/CredentialKind'
-        status:
-          $ref: '#/components/schemas/CredentialStatus'
-        credential:
-          type: string
     VerifyPublicCredentialRequest:
       type: object
       required:
@@ -1018,3 +1015,7 @@ components:
           type: string
         kind:
           $ref: '#/components/schemas/CredentialKind'
+    CredentialKind:
+      type: string
+      enum:
+        - PUBLIC
